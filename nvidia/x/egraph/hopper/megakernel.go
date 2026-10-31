@@ -34,6 +34,7 @@ type MegaStage struct {
 	Kernel     PlanKernel
 	Name       string   // device helper base name
 	Grid       [3]int   // stage logical grid (gx, gy, gz)
+	Threads    int      // active threads per CTA (defaults to 256 when 0)
 	BlockBase  int      // starting blockIdx.x in the megakernel grid
 	Blocks     int      // number of CTAs assigned to this stage (gx * gy * gz)
 	Shared     int      // dynamic shared memory bytes needed by this stage
@@ -109,15 +110,118 @@ func (p *Plan) Megakernel(name string) (Megakernel, error) {
 			stName  string
 			grid    [3]int
 			block   [3]int
+			threads = 256
 			smem    int
 			inNames []string
 			outName []string
 		)
 		switch {
+		case pk.RoPE != nil:
+			r := *pk.RoPE
+			stName = uniqueStageName(r.Name, i)
+			r.Name = stName
+			normed, err := r.norm()
+			if err != nil {
+				return Megakernel{}, fmt.Errorf("megakernel %s: stage %d: %w", name, i, err)
+			}
+			rows := pk.M
+			if rows <= 0 {
+				rows = pk.Rows
+			}
+			if rows <= 0 {
+				return Megakernel{}, fmt.Errorf("megakernel %s: stage %d: rope Rows %d <= 0", name, i, rows)
+			}
+			grid, block = normed.Grid(rows)
+			threads = block[0]
+			pk.RoPE = &normed
+			pk.M = rows
+			if len(pk.Args) != len(normed.params()) {
+				return Megakernel{}, fmt.Errorf("megakernel %s: stage %d: bad rope args %v", name, i, pk.Args)
+			}
+			for j, p := range normed.params() {
+				if strings.HasPrefix(p, "const ") {
+					inNames = append(inNames, pk.Args[j])
+				} else {
+					outName = append(outName, pk.Args[j])
+				}
+			}
+
 		case pk.Attention != nil:
-			return Megakernel{}, fmt.Errorf("megakernel %s: stage %d: paged attention stage not supported", name, i)
+			a := *pk.Attention
+			stName = uniqueStageName(a.Name, i)
+			a.Name = stName
+			if a.QLen == 0 {
+				a.QLen = 1
+			}
+			normed, _, err := a.norm()
+			if err != nil {
+				return Megakernel{}, fmt.Errorf("megakernel %s: stage %d: %w", name, i, err)
+			}
+			if normed.ClusterCombine {
+				return Megakernel{}, fmt.Errorf("megakernel %s: stage %d: cluster-combine attention not supported", name, i)
+			}
+			if normed.DeviceSplits {
+				return Megakernel{}, fmt.Errorf("megakernel %s: stage %d: device-splits attention not supported", name, i)
+			}
+			if pk.Batch <= 0 || pk.MaxKeys <= 0 || pk.MaxPages <= 0 {
+				return Megakernel{}, fmt.Errorf("megakernel %s: stage %d: attention needs positive Batch, MaxKeys and MaxPages", name, i)
+			}
+			grid, block = normed.Grid(pk.Batch, pk.MaxKeys)
+			threads = block[0]
+			smem = normed.SharedBytes()
+			pk.Attention = &normed
+			var ptrParams []string
+			for _, p := range normed.params() {
+				if !strings.HasPrefix(p, "int ") {
+					ptrParams = append(ptrParams, p)
+				}
+			}
+			if len(pk.Args) != len(ptrParams) && !(len(pk.Args) == len(ptrParams)-1 && normed.Splits(pk.MaxKeys) == 1) {
+				return Megakernel{}, fmt.Errorf("megakernel %s: stage %d: bad attention args %v", name, i, pk.Args)
+			}
+			for j, a := range pk.Args {
+				p := ptrParams[j]
+				switch {
+				case strings.HasPrefix(p, "const "):
+					inNames = append(inNames, a)
+				case paramName(p) != "ws":
+					outName = append(outName, a)
+				}
+			}
+
 		case pk.MMA != nil:
-			return Megakernel{}, fmt.Errorf("megakernel %s: stage %d: skinny mma stage not supported", name, i)
+			g := *pk.MMA
+			stName = uniqueStageName(g.Name, i)
+			g.Name = stName
+			if g.SplitK == 0 && len(pk.Args) == 3+len(g.Extras) {
+				g.SplitK = 1
+			}
+			normed, err := g.norm()
+			if err != nil {
+				return Megakernel{}, fmt.Errorf("megakernel %s: stage %d: %w", name, i, err)
+			}
+			if pk.M < 1 || pk.M > normed.MaxM {
+				return Megakernel{}, fmt.Errorf("megakernel %s: stage %d: M %d outside 1..%d", name, i, pk.M, normed.MaxM)
+			}
+			grid, block, err = normed.Grid()
+			if err != nil {
+				return Megakernel{}, fmt.Errorf("megakernel %s: stage %d: %w", name, i, err)
+			}
+			threads = block[0]
+			smem = normed.SharedBytes()
+			pk.MMA = &normed
+			ptrParams := normed.params()[1:]
+			if len(pk.Args) != len(ptrParams) {
+				return Megakernel{}, fmt.Errorf("megakernel %s: stage %d: bad skinny mma args %v", name, i, pk.Args)
+			}
+			for j, p := range ptrParams {
+				switch a := pk.Args[j]; {
+				case strings.HasPrefix(p, "const "):
+					inNames = append(inNames, a)
+				case paramName(p) != "ws":
+					outName = append(outName, a)
+				}
+			}
 
 		case pk.GEMM != nil:
 			g := *pk.GEMM
@@ -320,6 +424,7 @@ func (p *Plan) Megakernel(name string) (Megakernel, error) {
 			Kernel:     pk,
 			Name:       stName,
 			Grid:       grid,
+			Threads:    threads,
 			BlockBase:  blockBase,
 			Blocks:     blocks,
 			Shared:     smem,
@@ -358,10 +463,16 @@ func (m Megakernel) SharedBytes() int {
 	return smem
 }
 
-// ReadyWords returns the number of uint64 words needed in the ready counter
-// buffer (at least 1).
-func (m Megakernel) ReadyWords() int {
+// EpochSlot returns the index in the ready counter array reserved for the
+// device-resident launch epoch counter used when epoch == 0.
+func (m Megakernel) EpochSlot() int {
 	return max(len(m.Stages)-1, 1)
+}
+
+// ReadyWords returns the number of uint64 words needed in the ready counter
+// buffer (inter-stage ready slots plus the device-resident epoch slot).
+func (m Megakernel) ReadyWords() int {
+	return m.EpochSlot() + 1
 }
 
 // ReadyBytes returns the byte size of the ready counter buffer.
@@ -370,9 +481,24 @@ func (m Megakernel) ReadyBytes() int {
 }
 
 func (m Megakernel) params() []string {
+	mutated := make(map[string]bool)
+	for _, st := range m.Stages {
+		for _, out := range st.Outputs {
+			mutated[out.Name] = true
+		}
+		if st.Kernel.RoPE != nil && len(st.Kernel.Args) >= 3 {
+			for _, a := range st.Kernel.Args[len(st.Kernel.Args)-3:] {
+				mutated[a] = true
+			}
+		}
+	}
 	var params []string
 	for _, t := range m.Inputs {
-		params = append(params, "const "+t.DType.cType()+"* __restrict__ "+t.Name)
+		qual := "const "
+		if mutated[t.Name] {
+			qual = ""
+		}
+		params = append(params, qual+t.DType.cType()+"* __restrict__ "+t.Name)
 	}
 	for _, t := range m.Temps {
 		params = append(params, t.DType.cType()+"* __restrict__ "+t.Name)
@@ -398,8 +524,14 @@ func stageDeviceParts(st MegaStage, seenHelpers map[string]bool) (prelude, fnBod
 		raw, err = k.GEMM.CUDA()
 	case k.Tile != nil:
 		raw, err = k.Tile.CUDA()
+	case k.MMA != nil:
+		raw, err = k.MMA.CUDA()
 	case k.Row != nil:
 		raw, err = k.Row.CUDA()
+	case k.RoPE != nil:
+		raw, err = k.RoPE.CUDA()
+	case k.Attention != nil:
+		raw, err = k.Attention.CUDA()
 	case k.ExpertSum != nil:
 		raw, err = k.ExpertSum.CUDA()
 	case k.TopK != nil:
@@ -412,7 +544,11 @@ func stageDeviceParts(st MegaStage, seenHelpers map[string]bool) (prelude, fnBod
 	if err != nil {
 		return "", "", err
 	}
-	marker := "__global__ void __launch_bounds__(256) " + st.Name + "(\n    "
+	threads := st.Threads
+	if threads <= 0 {
+		threads = 256
+	}
+	marker := fmt.Sprintf("__global__ void __launch_bounds__(%d) %s(\n    ", threads, st.Name)
 	idx := strings.Index(raw, marker)
 	if idx < 0 {
 		return "", "", fmt.Errorf("stage %s: unexpected kernel header in generated CUDA", st.Name)
@@ -421,6 +557,15 @@ func stageDeviceParts(st MegaStage, seenHelpers map[string]bool) (prelude, fnBod
 	body := raw[idx+len(marker):]
 	body = strings.ReplaceAll(body, "blockIdx.", "eg_bidx.")
 	body = strings.ReplaceAll(body, "gridDim.", "eg_gdim.")
+	if threads < 256 {
+		body = strings.ReplaceAll(body, "__syncthreads()", fmt.Sprintf("asm volatile(\"bar.sync 1, %d;\")", threads))
+		openIdx := strings.Index(body, ") {")
+		if openIdx < 0 {
+			return "", "", fmt.Errorf("stage %s: missing parameter list close in generated CUDA", st.Name)
+		}
+		insertPos := openIdx + len(") {")
+		body = body[:insertPos] + fmt.Sprintf("\n    if (threadIdx.x >= %d) return;", threads) + body[insertPos:]
+	}
 
 	// Separate any helper blocks in prefix from the trailing comment/template lines.
 	var commentLines []string
@@ -506,6 +651,7 @@ func (m Megakernel) cudaSource(lineInfo bool) (string, []StageLineSpan, error) {
 	fmt.Fprintf(&b, "__global__ void __launch_bounds__(256) %s(\n    %s) {\n",
 		m.Name, strings.Join(m.params(), ",\n    "))
 	b.WriteString("    const int eg_bid = blockIdx.x;\n")
+	fmt.Fprintf(&b, "    epoch = eg_ready_resolve_epoch(&ready[%d], epoch, %d);\n", m.EpochSlot(), grid[0])
 
 	for _, st := range m.Stages {
 		gx, gy, gz := st.Grid[0], st.Grid[1], st.Grid[2]
@@ -532,6 +678,24 @@ func (m Megakernel) cudaSource(lineInfo bool) (string, []StageLineSpan, error) {
 		case k.Tile != nil:
 			fmt.Fprintf(&b, "        %s_dev(eg_bidx, eg_gdim, %d, %s);\n",
 				st.Name, k.M, strings.Join(k.Args, ", "))
+		case k.MMA != nil:
+			fmt.Fprintf(&b, "        %s_dev(eg_bidx, eg_gdim, %d, %s);\n",
+				st.Name, k.M, strings.Join(k.Args, ", "))
+		case k.RoPE != nil:
+			fmt.Fprintf(&b, "        %s_dev(eg_bidx, eg_gdim, %s);\n",
+				st.Name, strings.Join(k.Args, ", "))
+		case k.Attention != nil:
+			args := slices.Clone(k.Args)
+			if len(args) < len(k.Attention.params()) {
+				if len(args) >= 4 {
+					args = append(args[:4], append([]string{fmt.Sprint(k.MaxPages)}, args[4:]...)...)
+				}
+				if len(args) == len(k.Attention.params())-1 {
+					args = append(args, "nullptr")
+				}
+			}
+			fmt.Fprintf(&b, "        %s_dev(eg_bidx, eg_gdim, %s);\n",
+				st.Name, strings.Join(args, ", "))
 		default:
 			fmt.Fprintf(&b, "        %s_dev(eg_bidx, eg_gdim, %d, %s);\n",
 				st.Name, k.Rows, strings.Join(k.Args, ", "))

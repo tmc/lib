@@ -279,6 +279,255 @@ func BuildCrossLayerMegakernel(post, nextAttnIn *Plan, glue CrossLayerGlue) (*Pl
 	return fused, mega, nil
 }
 
+// DecoderLayerPlans holds the pre-attention (AttnIn) and post-attention
+// (Post) plans for a single transformer decoder layer.
+type DecoderLayerPlans struct {
+	LayerIndex int
+	AttnIn     *Plan
+	Post       *Plan
+}
+
+// CrossLayerStackConfig configures multi-layer cross-layer fusion and
+// shared temporary arena packing across an N-layer decoder stack.
+type CrossLayerStackConfig struct {
+	// NamePrefix is the prefix for fused cross-layer boundary plan names
+	// (default "cross").
+	NamePrefix string
+
+	// BridgeInput is the input tensor name in layer (i+1)'s AttnIn plan
+	// that receives layer i's Post output (default "xn").
+	BridgeInput string
+
+	// RetainBridgeOutput preserves the bridge tensor in Temps of each
+	// fused cross-layer boundary plan.
+	RetainBridgeOutput bool
+
+	// Norm is the optional initial embedding RMSNorm plan preceding Layer 0.
+	Norm *Plan
+
+	// Head is the optional final LM head projection plan following Layer N-1.
+	Head *Plan
+
+	// FuseFinalHead fuses Layer[N-1].Post with Head across BridgeInput
+	// when Head is non-nil.
+	FuseFinalHead bool
+
+	// ArenaMaxBytes is the optional upper bound for PlanArena across all
+	// plans in the stack (0 means unlimited when packing temps).
+	ArenaMaxBytes uint64
+
+	// PackArena enables shared temporary arena packing (PlanArena) across
+	// all plans in the resulting stack.
+	PackArena bool
+
+	// Mega lowers each fused cross-layer boundary plan (and FuseFinalHead
+	// plan when enabled) to a persistent Megakernel.
+	Mega bool
+}
+
+// CrossLayerStack holds the plans, persistent megakernels, and packed
+// temporary arena layout for an N-layer decoder stack after cross-layer
+// boundary fusion.
+type CrossLayerStack struct {
+	NumLayers        int
+	Norm             *Plan
+	FirstAttnIn      *Plan
+	CrossBoundaries  []*Plan
+	CrossMegakernels []Megakernel
+	FinalPost        *Plan
+	FinalMegakernel  *Megakernel
+	Head             *Plan
+	ArenaBytes       uint64
+	hadHead          bool
+}
+
+// Plans returns all non-nil plans in execution order (Norm, FirstAttnIn,
+// CrossBoundaries..., FinalPost, Head).
+func (s *CrossLayerStack) Plans() []*Plan {
+	if s == nil {
+		return nil
+	}
+	plans := make([]*Plan, 0, len(s.CrossBoundaries)+4)
+	if s.Norm != nil {
+		plans = append(plans, s.Norm)
+	}
+	if s.FirstAttnIn != nil {
+		plans = append(plans, s.FirstAttnIn)
+	}
+	for _, p := range s.CrossBoundaries {
+		if p != nil {
+			plans = append(plans, p)
+		}
+	}
+	if s.FinalPost != nil {
+		plans = append(plans, s.FinalPost)
+	}
+	if s.Head != nil {
+		plans = append(plans, s.Head)
+	}
+	return plans
+}
+
+// UnfusedLaunchCount returns the total AttnIn + Post (+ Norm + Head) plan
+// count before cross-layer fusion.
+func (s *CrossLayerStack) UnfusedLaunchCount() int {
+	if s == nil {
+		return 0
+	}
+	n := 2 * s.NumLayers
+	if s.Norm != nil {
+		n++
+	}
+	if s.Head != nil || s.hadHead || s.FinalMegakernel != nil || (s.FinalPost != nil && strings.HasSuffix(s.FinalPost.Name, "_head")) {
+		n++
+	}
+	return n
+}
+
+// FusedLaunchCount returns len(s.Plans()).
+func (s *CrossLayerStack) FusedLaunchCount() int {
+	if s == nil {
+		return 0
+	}
+	return len(s.Plans())
+}
+
+// FuseDecoderLayerStack fuses adjacent (Layer[i].Post, Layer[i+1].AttnIn)
+// boundaries across an N-layer transformer decoder stack, optionally fuses
+// Layer[N-1].Post with cfg.Head, lowers boundary plans to persistent
+// Megakernels when cfg.Mega is set, and packs shared temporary storage across
+// all stack plans via [PlanArena] when cfg.PackArena or cfg.ArenaMaxBytes > 0.
+func FuseDecoderLayerStack(layers []DecoderLayerPlans, cfg CrossLayerStackConfig) (*CrossLayerStack, error) {
+	if len(layers) == 0 {
+		return nil, fmt.Errorf("cross-layer stack: empty layers")
+	}
+	for i, l := range layers {
+		if l.AttnIn == nil || len(l.AttnIn.Kernels) == 0 {
+			return nil, fmt.Errorf("cross-layer stack: layer %d has empty AttnIn plan", i)
+		}
+		if l.Post == nil || len(l.Post.Kernels) == 0 {
+			return nil, fmt.Errorf("cross-layer stack: layer %d has empty Post plan", i)
+		}
+	}
+
+	prefix := strings.TrimSpace(cfg.NamePrefix)
+	if prefix == "" {
+		prefix = "cross"
+	}
+	bridge := strings.TrimSpace(cfg.BridgeInput)
+	if bridge == "" {
+		bridge = "xn"
+	}
+
+	n := len(layers)
+	stack := &CrossLayerStack{
+		NumLayers:       n,
+		Norm:            clonePlan(cfg.Norm),
+		FirstAttnIn:     clonePlan(layers[0].AttnIn),
+		CrossBoundaries: make([]*Plan, max(n-1, 0)),
+		hadHead:         cfg.Head != nil,
+	}
+	if cfg.Mega && n > 1 {
+		stack.CrossMegakernels = make([]Megakernel, n-1)
+	}
+
+	layerIdx := func(pos int) int {
+		idx := layers[pos].LayerIndex
+		if idx == 0 && pos > 0 {
+			return pos
+		}
+		return idx
+	}
+
+	for i := 0; i < n-1; i++ {
+		l0Idx := layerIdx(i)
+		l1Idx := layerIdx(i + 1)
+		if l0Idx == l1Idx {
+			l0Idx = i
+			l1Idx = i + 1
+		}
+		glue := CrossLayerGlue{
+			Name:               fmt.Sprintf("%s_l%d_l%d", prefix, l0Idx, l1Idx),
+			LayerLPrefix:       fmt.Sprintf("l%d_", l0Idx),
+			LayerNextPrefix:    fmt.Sprintf("l%d_", l1Idx),
+			BridgeInput:        bridge,
+			RetainBridgeOutput: cfg.RetainBridgeOutput,
+		}
+		fused, err := FuseCrossLayerPlans(layers[i].Post, layers[i+1].AttnIn, glue)
+		if err != nil {
+			return nil, fmt.Errorf("cross-layer stack boundary %d->%d: %w", l0Idx, l1Idx, err)
+		}
+		stack.CrossBoundaries[i] = fused
+		if cfg.Mega {
+			mega, err := fused.Megakernel(glue.Name + "_mega")
+			if err != nil {
+				return nil, fmt.Errorf("cross-layer stack megakernel %d->%d: %w", l0Idx, l1Idx, err)
+			}
+			stack.CrossMegakernels[i] = mega
+		}
+	}
+
+	lastIdx := layerIdx(n - 1)
+	if cfg.FuseFinalHead && cfg.Head != nil {
+		headGlue := CrossLayerGlue{
+			Name:               fmt.Sprintf("%s_l%d_head", prefix, lastIdx),
+			LayerLPrefix:       fmt.Sprintf("l%d_", lastIdx),
+			LayerNextPrefix:    "head_",
+			BridgeInput:        bridge,
+			RetainBridgeOutput: cfg.RetainBridgeOutput,
+		}
+		fusedFinal, err := FuseCrossLayerPlans(layers[n-1].Post, cfg.Head, headGlue)
+		if err != nil {
+			return nil, fmt.Errorf("cross-layer stack final head %d->head: %w", lastIdx, err)
+		}
+		stack.FinalPost = fusedFinal
+		stack.Head = nil
+		if cfg.Mega {
+			finalMega, err := fusedFinal.Megakernel(headGlue.Name + "_mega")
+			if err != nil {
+				return nil, fmt.Errorf("cross-layer stack final megakernel %d->head: %w", lastIdx, err)
+			}
+			stack.FinalMegakernel = &finalMega
+		}
+	} else {
+		stack.FinalPost = clonePlan(layers[n-1].Post)
+		stack.Head = clonePlan(cfg.Head)
+	}
+
+	if cfg.PackArena || cfg.ArenaMaxBytes > 0 {
+		arena, err := PlanArena(stack.Plans(), cfg.ArenaMaxBytes, !cfg.Mega)
+		if err != nil {
+			return nil, fmt.Errorf("cross-layer stack arena: %w", err)
+		}
+		stack.ArenaBytes = arena.Bytes
+	}
+
+	return stack, nil
+}
+
+func clonePlan(p *Plan) *Plan {
+	if p == nil {
+		return nil
+	}
+	out := &Plan{
+		Name:    p.Name,
+		Inputs:  make([]Tensor, len(p.Inputs)),
+		Temps:   make([]Tensor, len(p.Temps)),
+		Output:  cloneTensor(p.Output),
+		Kernels: make([]PlanKernel, len(p.Kernels)),
+	}
+	for i, in := range p.Inputs {
+		out.Inputs[i] = cloneTensor(in)
+	}
+	for i, t := range p.Temps {
+		out.Temps[i] = cloneTensor(t)
+	}
+	for i, k := range p.Kernels {
+		out.Kernels[i] = clonePlanKernel(k)
+	}
+	return out
+}
+
 func ensureLayerPrefix(name, prefix string) string {
 	if strings.HasPrefix(name, prefix) {
 		return name
@@ -366,22 +615,20 @@ func preparePlanForMegakernel(p *Plan) *Plan {
 				ck.Tile = &t
 			}
 		}
-		if ck.MMA != nil && ck.M <= 16 {
-			m := ck.MMA
-			g := SkinnyGEMM{
-				Name:     m.Name,
-				N:        m.N,
-				K:        m.K,
-				MaxM:     max(ck.M, 1),
-				Weight:   WeightBF16,
-				Out:      m.Out,
-				Epilogue: m.Epilogue,
-				Extras:   slices.Clone(m.Extras),
-				X:        BF16,
-				GLU:      m.GLU,
+		if ck.MMA != nil {
+			if ck.MMA.MaxM == 0 {
+				ck.MMA.MaxM = max(ck.M, 1)
 			}
-			ck.MMA = nil
-			ck.GEMM = &g
+			if len(ck.Args) == 3+len(ck.MMA.Extras) {
+				ck.MMA.SplitK = 1
+			}
+		}
+		if ck.RoPE != nil && ck.M <= 0 && ck.Rows > 0 {
+			ck.M = ck.Rows
+		}
+		if ck.Attention != nil {
+			ck.Attention.ClusterCombine = false
+			ck.Attention.DeviceSplits = false
 		}
 		if ck.GEMM != nil {
 			if ck.GEMM.Warps != 0 && ck.GEMM.Warps != 8 {
@@ -532,6 +779,10 @@ func clonePlanKernel(k PlanKernel) PlanKernel {
 		r := cloneRowKernel(*k.Row)
 		ck.Row = &r
 	}
+	if k.RoPE != nil {
+		r := *k.RoPE
+		ck.RoPE = &r
+	}
 	if k.Attention != nil {
 		a := *k.Attention
 		ck.Attention = &a
@@ -607,6 +858,8 @@ func planKernelName(k PlanKernel) string {
 		return k.Quant.Name
 	case k.Row != nil:
 		return k.Row.Name
+	case k.RoPE != nil:
+		return k.RoPE.Name
 	case k.Attention != nil:
 		return k.Attention.Name
 	case k.TopK != nil:
@@ -634,6 +887,8 @@ func setPlanKernelName(k *PlanKernel, name string) {
 		k.Quant.Name = name
 	case k.Row != nil:
 		k.Row.Name = name
+	case k.RoPE != nil:
+		k.RoPE.Name = name
 	case k.Attention != nil:
 		k.Attention.Name = name
 	case k.TopK != nil:

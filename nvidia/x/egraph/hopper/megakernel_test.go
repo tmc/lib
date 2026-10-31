@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand/v2"
+	"slices"
 	"strings"
 	"testing"
 
@@ -225,8 +226,11 @@ func TestMegakernelSkinnyGEMMThenRow(t *testing.T) {
 	if len(mega.Stages) != 2 {
 		t.Fatalf("megakernel has %d stages, want 2", len(mega.Stages))
 	}
-	if mega.ReadyWords() != 1 {
-		t.Fatalf("ReadyWords = %d, want 1", mega.ReadyWords())
+	if mega.EpochSlot() != 1 {
+		t.Fatalf("EpochSlot = %d, want 1", mega.EpochSlot())
+	}
+	if mega.ReadyWords() != 2 {
+		t.Fatalf("ReadyWords = %d, want 2", mega.ReadyWords())
 	}
 
 	r := rand.New(rand.NewPCG(21, 22))
@@ -694,6 +698,422 @@ func TestMegakernelLineInfoAttribution(t *testing.T) {
 	}
 }
 
+func TestMegakernelDeviceEpoch(t *testing.T) {
+	b := NewBuilder()
+	x := b.Input("x", BF16, 2, 256)
+	w := b.Input("w", BF16, 64, 256)
+	y := b.MatMul(x, w)
+	ss := b.ReduceSum(b.Map(MustLambda("(mul $0 $0)"), y))
+	root := b.Map(MustLambda("(mul $0 (rsqrt (add (div $1 64) 1e-5)))"), y, ss)
+
+	expr, err := Optimize(b.G, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := Compile(expr, "dev_epoch", BF16)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mega, err := plan.Megakernel("dev_epoch_mega")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mega.EpochSlot() != 1 || mega.ReadyWords() != 2 {
+		t.Fatalf("EpochSlot=%d ReadyWords=%d, want 1 and 2", mega.EpochSlot(), mega.ReadyWords())
+	}
+	src, err := mega.Source()
+	if err != nil {
+		t.Fatal(err)
+	}
+	grid, _ := mega.Grid()
+	wantResolve := fmt.Sprintf("epoch = eg_ready_resolve_epoch(&ready[%d], epoch, %d);", mega.EpochSlot(), grid[0])
+	if !strings.Contains(src, wantResolve) {
+		t.Fatalf("missing %q in source", wantResolve)
+	}
+
+	// Launch 3 replays with epoch == 0u (as inside a replayed CUDA Graph).
+	r := rand.New(rand.NewPCG(61, 62))
+	envs := make([]map[string]Value, 3)
+	for i := range envs {
+		envs[i] = randEnv(r, Tensor{"x", BF16, []int{2, 256}}, Tensor{"w", BF16, []int{64, 256}})
+	}
+
+	var cbufs []cudahostemu.Buffer
+	var launches []string
+	for _, tmp := range mega.Temps {
+		raw := poison(size(tmp.Shape) * tmp.DType.Bits() / 8)
+		cbufs = append(cbufs, cudahostemu.Buffer{Name: tmp.Name, CType: tmp.DType.cType(), Data: raw})
+	}
+	cbufs = append(cbufs, cudahostemu.Buffer{
+		Name:  "ready",
+		CType: "unsigned long long",
+		Data:  make([]byte, mega.ReadyBytes()),
+	})
+	for epIdx, env := range envs {
+		ep := epIdx + 1
+		var args []string
+		for _, in := range mega.Inputs {
+			bname := fmt.Sprintf("%s_ep%d", in.Name, ep)
+			cbufs = append(cbufs, cudahostemu.Buffer{
+				Name:  bname,
+				CType: in.DType.cType(),
+				Data:  typed{in.DType, env[in.Name].Data}.bytes(),
+			})
+			args = append(args, bname)
+		}
+		for _, tmp := range mega.Temps {
+			args = append(args, tmp.Name)
+		}
+		outName := fmt.Sprintf("%s_ep%d", mega.Output.Name, ep)
+		cbufs = append(cbufs, cudahostemu.Buffer{
+			Name:  outName,
+			CType: mega.Output.DType.cType(),
+			Data:  poison(size(mega.Output.Shape) * mega.Output.DType.Bits() / 8),
+		})
+		args = append(args, outName, "ready", "0u", "nullptr")
+		launches = append(launches, fmt.Sprintf("%s_run(%s)", mega.Name, strings.Join(args, ", ")))
+	}
+
+	res, err := cudahostemu.Run(t.Context(), t.TempDir(), cudahostemu.Program{
+		Source:  src,
+		Launch:  strings.Join(launches, ";\n    "),
+		Buffers: cbufs,
+	})
+	if err != nil {
+		t.Fatalf("device-epoch megakernel failed: %v", err)
+	}
+	for ep, env := range envs {
+		outName := fmt.Sprintf("%s_ep%d", mega.Output.Name, ep+1)
+		got := decode(mega.Output.DType, res[outName])
+		planOut := runPlan(t, plan, env)
+		agree(t, fmt.Sprintf("epoch0_replay_%d", ep+1), BF16, got, planOut)
+	}
+	readyWords := bytesU64(res["ready"])
+	if want := PackReadyWord(3, uint32(mega.Stages[0].Blocks)); readyWords[0] != want {
+		t.Fatalf("ready[0] = %#x, want %#x", readyWords[0], want)
+	}
+	if wantTickets := uint64(3 * grid[0]); readyWords[mega.EpochSlot()] != wantTickets {
+		t.Fatalf("ready[%d] = %d, want %d", mega.EpochSlot(), readyWords[mega.EpochSlot()], wantTickets)
+	}
+}
+
+func runPlanSource(t *testing.T, p *Plan, env map[string]Value) []float64 {
+	t.Helper()
+	src, err := p.Source()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cbufs []cudahostemu.Buffer
+	var args []string
+	for _, in := range p.Inputs {
+		cbufs = append(cbufs, cudahostemu.Buffer{
+			Name:  in.Name,
+			CType: in.DType.cType(),
+			Data:  typed{in.DType, env[in.Name].Data}.bytes(),
+		})
+		args = append(args, in.Name)
+	}
+	for _, tmp := range p.Temps {
+		cbufs = append(cbufs, cudahostemu.Buffer{
+			Name:  tmp.Name,
+			CType: tmp.DType.cType(),
+			Data:  make([]byte, size(tmp.Shape)*tmp.DType.Bits()/8),
+		})
+		args = append(args, tmp.Name)
+	}
+	cbufs = append(cbufs, cudahostemu.Buffer{
+		Name:  p.Output.Name,
+		CType: p.Output.DType.cType(),
+		Data:  poison(size(p.Output.Shape) * p.Output.DType.Bits() / 8),
+	})
+	args = append(args, p.Output.Name, "nullptr")
+	res, err := cudahostemu.Run(t.Context(), t.TempDir(), cudahostemu.Program{
+		Source:  src,
+		Launch:  fmt.Sprintf("%s_run(%s)", p.Name, strings.Join(args, ", ")),
+		Buffers: cbufs,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return decode(p.Output.DType, res[p.Output.Name])
+}
+
+func TestMegakernelSkinnyMMA(t *testing.T) {
+	const (
+		m    = 16
+		kDim = 128
+		nOut = 64
+	)
+	mma := SkinnyMMA{
+		Name:   "mma_proj",
+		N:      nOut,
+		K:      kDim,
+		MaxM:   m,
+		Out:    F32,
+		SplitK: 1,
+	}
+	rk := RowKernel{
+		Name:    "mma_scale",
+		D:       nOut,
+		Inputs:  []RowTensor{{Name: "in0", Buffer: "mid", DType: F32, Kind: RowData}},
+		Values:  []RowValue{{Name: "v0", Body: MustLambda("(mul $0 0.5)"), Args: []string{"in0"}}},
+		Outputs: []RowTensor{{Name: "out", DType: BF16, Kind: RowData, Value: "v0"}},
+	}
+	plan := &Plan{
+		Name: "mma_plan",
+		Inputs: []Tensor{
+			{"x", BF16, []int{m, kDim}},
+			{"w", BF16, []int{nOut, kDim}},
+		},
+		Temps:  []Tensor{{"mid", F32, []int{m, nOut}}},
+		Output: Tensor{"out", BF16, []int{m, nOut}},
+		Kernels: []PlanKernel{
+			{MMA: &mma, M: m, Args: []string{"x", "w", "mid"}},
+			{Row: &rk, Rows: m, Args: []string{"mid", "out"}},
+		},
+	}
+	mega, err := plan.Megakernel("mma_plan_mega")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mega.Stages[0].Threads != 128 {
+		t.Fatalf("stage 0 Threads = %d, want 128", mega.Stages[0].Threads)
+	}
+	cudaSrc, err := mega.CUDA()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(cudaSrc, "if (threadIdx.x >= 128) return;") {
+		t.Fatal("missing threadIdx.x >= 128 guard in SkinnyMMA stage")
+	}
+	if !strings.Contains(cudaSrc, `asm volatile("bar.sync 1, 128;")`) {
+		t.Fatal("missing bar.sync 1, 128 in SkinnyMMA stage")
+	}
+
+	r := rand.New(rand.NewPCG(73, 74))
+	env := randEnv(r, plan.Inputs...)
+	outs, _, err := runMegakernelEpochs(t, mega, []map[string]Value{env})
+	if err != nil {
+		t.Fatalf("SkinnyMMA megakernel failed: %v", err)
+	}
+	planOut := runPlanSource(t, plan, env)
+	agree(t, "skinny_mma_mega", BF16, outs[0], planOut)
+}
+
+func TestMegakernelFullLayer(t *testing.T) {
+	const (
+		tokens   = 1
+		h        = 256
+		hq       = 4
+		hkv      = 2
+		dHead    = 64
+		qDim     = hq * dHead
+		kvDim    = hkv * dHead
+		qkvDim   = qDim + 2*kvDim
+		pageSize = 16
+		maxPages = 2
+		maxKeys  = 4
+	)
+
+	qkvGEMM := SkinnyGEMM{
+		Name:         "layer_qkv",
+		N:            qkvDim,
+		K:            h,
+		MaxM:         tokens,
+		RowsPerBlock: 32,
+		Weight:       WeightBF16,
+		X:            BF16,
+		Out:          BF16,
+	}
+	rope := QKNormRoPEKVAppend{
+		Name:      "layer_rope_kv",
+		NumHeads:  hq,
+		KVHeads:   hkv,
+		HeadDim:   dHead,
+		RotaryDim: dHead,
+		PageSize:  pageSize,
+		MaxPages:  maxPages,
+		DType:     BF16,
+		QKNorm:    true,
+		KVFP8:     true,
+		Eps:       1e-5,
+	}
+	attn := PagedAttention{
+		Name: "layer_attn",
+		Hq:   hq,
+		Hkv:  hkv,
+		QLen: 1,
+		Page: pageSize,
+		Q:    BF16,
+		Out:  BF16,
+	}
+	oProj := SkinnyGEMM{
+		Name:         "layer_o_proj",
+		N:            h,
+		K:            qDim,
+		MaxM:         tokens,
+		RowsPerBlock: 32,
+		Weight:       WeightBF16,
+		X:            BF16,
+		Out:          F32,
+	}
+	norm := RowKernel{
+		Name: "layer_rmsnorm",
+		D:    h,
+		Inputs: []RowTensor{
+			{Name: "in0", Buffer: "o_out", DType: F32, Kind: RowData},
+			{Name: "in1", Buffer: "norm_w", DType: F32, Kind: ColVector},
+		},
+		Values: []RowValue{
+			{Name: "v_sq", Body: MustLambda("(mul $0 $0)"), Args: []string{"in0"}},
+			{Name: "r_ss", Reduce: "sum", Body: Identity, Args: []string{"v_sq"}},
+			{Name: "v_out", Body: MustLambda("(mul (mul $0 (rsqrt (add (div $1 256) 1e-5))) $2)"), Args: []string{"in0", "r_ss", "in1"}},
+		},
+		Outputs: []RowTensor{
+			{Name: "out", DType: BF16, Kind: RowData, Value: "v_out"},
+		},
+	}
+
+	totalPages := 2
+	kvCacheElems := totalPages * pageSize * hkv * dHead
+	plan := &Plan{
+		Name: "decoder_layer",
+		Inputs: []Tensor{
+			{"x", BF16, []int{tokens, h}},
+			{"w_qkv", BF16, []int{qkvDim, h}},
+			{"q_norm_w", BF16, []int{dHead}},
+			{"k_norm_w", BF16, []int{dHead}},
+			{"cos_sin", F32, []int{16, dHead}},
+			{"positions", I32, []int{tokens}},
+			{"seq_ids", I32, []int{tokens}},
+			{"seqlens", I32, []int{tokens}},
+			{"kv_positions", I32, []int{tokens}},
+			{"page_table", I32, []int{tokens, maxPages}},
+			{"k_scale", F32, []int{1}},
+			{"v_scale", F32, []int{1}},
+			{"w_o", BF16, []int{h, qDim}},
+			{"norm_w", F32, []int{h}},
+		},
+		Temps: []Tensor{
+			{"qkv_out", BF16, []int{tokens, qkvDim}},
+			{"q_out", BF16, []int{tokens, qDim}},
+			{"k_cache", E4M3, []int{kvCacheElems}},
+			{"v_cache", E4M3, []int{kvCacheElems}},
+			{"attn_out", BF16, []int{tokens, qDim}},
+			{"attn_ws", E4M3, []int{64}},
+			{"o_out", F32, []int{tokens, h}},
+		},
+		Output: Tensor{"out", BF16, []int{tokens, h}},
+		Kernels: []PlanKernel{
+			{
+				GEMM: &qkvGEMM,
+				M:    tokens,
+				Args: []string{"x", "w_qkv", "qkv_out"},
+			},
+			{
+				RoPE: &rope,
+				M:    tokens,
+				Args: []string{
+					"qkv_out", "q_norm_w", "k_norm_w", "cos_sin",
+					"positions", "seq_ids", "seqlens", "kv_positions", "page_table",
+					"k_scale", "v_scale", "q_out", "k_cache", "v_cache",
+				},
+			},
+			{
+				Attention: &attn,
+				Batch:     tokens,
+				MaxKeys:   maxKeys,
+				MaxPages:  maxPages,
+				Args: []string{
+					"q_out", "k_cache", "v_cache", "page_table",
+					"seqlens", "k_scale", "v_scale", "attn_out", "attn_ws",
+				},
+			},
+			{
+				GEMM: &oProj,
+				M:    tokens,
+				Args: []string{"attn_out", "w_o", "o_out"},
+			},
+			{
+				Row:  &norm,
+				Rows: tokens,
+				Args: []string{"o_out", "norm_w", "out"},
+			},
+		},
+	}
+
+	mega, err := plan.Megakernel("decoder_layer_mega")
+	if err != nil {
+		t.Fatalf("Megakernel: %v", err)
+	}
+	if len(mega.Stages) != 5 {
+		t.Fatalf("len(mega.Stages) = %d, want 5", len(mega.Stages))
+	}
+	if mega.EpochSlot() != 4 || mega.ReadyWords() != 5 {
+		t.Fatalf("EpochSlot=%d ReadyWords=%d, want 4 and 5", mega.EpochSlot(), mega.ReadyWords())
+	}
+	if mega.Stages[1].Threads != 128 || mega.Stages[2].Threads != 128 {
+		t.Fatalf("RoPE/Attention Threads = (%d, %d), want (128, 128)", mega.Stages[1].Threads, mega.Stages[2].Threads)
+	}
+	if !slices.Contains(mega.Stages[2].WaitSlots, 1) {
+		t.Fatalf("Attention WaitSlots = %v, want to contain stage 1 (RoPE)", mega.Stages[2].WaitSlots)
+	}
+	if !slices.Contains(mega.Stages[3].WaitSlots, 2) {
+		t.Fatalf("o_proj WaitSlots = %v, want to contain stage 2 (Attention)", mega.Stages[3].WaitSlots)
+	}
+
+	cudaSrc, err := mega.CUDA()
+	if err != nil {
+		t.Fatalf("CUDA: %v", err)
+	}
+	if !strings.Contains(cudaSrc, `asm volatile("bar.sync 1, 128;")`) {
+		t.Fatal("missing bar.sync 1, 128 in CUDA source")
+	}
+	if strings.Count(cudaSrc, "if (threadIdx.x >= 128) return;") < 2 {
+		t.Fatal("expected threadIdx.x >= 128 guard in both RoPE and Attention stages")
+	}
+
+	lineSrc, spans, err := mega.LineInfoSource()
+	if err != nil {
+		t.Fatalf("LineInfoSource: %v", err)
+	}
+	if len(spans) != 5 {
+		t.Fatalf("len(spans) = %d, want 5", len(spans))
+	}
+
+	// Execute full-layer Plan vs persistent Megakernel in host emulator.
+	r := rand.New(rand.NewPCG(95, 96))
+	env := randEnv(r,
+		Tensor{"x", BF16, []int{tokens, h}},
+		Tensor{"w_qkv", BF16, []int{qkvDim, h}},
+		Tensor{"q_norm_w", BF16, []int{dHead}},
+		Tensor{"k_norm_w", BF16, []int{dHead}},
+		Tensor{"cos_sin", F32, []int{16, dHead}},
+		Tensor{"w_o", BF16, []int{h, qDim}},
+		Tensor{"norm_w", F32, []int{h}},
+	)
+	env["positions"] = Value{Shape: []int{tokens}, Data: []float64{0}}
+	env["seq_ids"] = Value{Shape: []int{tokens}, Data: []float64{0}}
+	env["seqlens"] = Value{Shape: []int{tokens}, Data: []float64{1}}
+	env["kv_positions"] = Value{Shape: []int{tokens}, Data: []float64{0}}
+	env["page_table"] = Value{Shape: []int{tokens, maxPages}, Data: []float64{0, 1}}
+	env["k_scale"] = Value{Shape: []int{1}, Data: []float64{1.0}}
+	env["v_scale"] = Value{Shape: []int{1}, Data: []float64{1.0}}
+
+	outs, readyWords, err := runMegakernelSourceEpochs(t, mega, lineSrc, []map[string]Value{env})
+	if err != nil {
+		t.Fatalf("full-layer megakernel execution failed: %v", err)
+	}
+	planOut := runPlanSource(t, plan, env)
+	agree(t, "full_layer_megakernel", BF16, outs[0], planOut)
+	for i := 0; i < 4; i++ {
+		want := PackReadyWord(1, uint32(mega.Stages[i].Blocks))
+		if readyWords[i] != want {
+			t.Fatalf("ready[%d] = %#x, want %#x", i, readyWords[i], want)
+		}
+	}
+}
+
 func ExamplePlan_Megakernel() {
 	b := NewBuilder()
 	x := b.Input("x", BF16, 2, 256)
@@ -707,5 +1127,5 @@ func ExamplePlan_Megakernel() {
 	grid, block := mega.Grid()
 	fmt.Println(len(mega.Stages), grid, block, mega.ReadyWords())
 	// Output:
-	// 2 [65 1 1] [256 1 1] 1
+	// 2 [65 1 1] [256 1 1] 2
 }

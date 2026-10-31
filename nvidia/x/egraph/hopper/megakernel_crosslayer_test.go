@@ -360,3 +360,234 @@ func TestCrossLayerErrors(t *testing.T) {
 		t.Error("mismatched bridge shape: expected error")
 	}
 }
+
+func buildTestStackPlans(t *testing.T, numLayers, m, h, qDim, kvDim, inter, vocab int) (norm *Plan, layers []DecoderLayerPlans, head *Plan) {
+	t.Helper()
+	const eps = 1e-5
+
+	bNorm := NewBuilder()
+	xIn := bNorm.Input("x_in", F32, m, h)
+	wNorm := bNorm.Input("emb_norm", F32, h)
+	xn0 := bNorm.Cast(BF16, bNorm.RMSNorm(xIn, wNorm, h, eps))
+	normExpr, err := Optimize(bNorm.G, xn0)
+	if err != nil {
+		t.Fatalf("optimize norm: %v", err)
+	}
+	norm, err = Compile(normExpr, "emb_rmsnorm", BF16)
+	if err != nil {
+		t.Fatalf("compile norm: %v", err)
+	}
+
+	postProto, attnInProto := buildTestCrossLayerPlans(t, m, h, qDim, kvDim, inter, true, true)
+	layers = make([]DecoderLayerPlans, numLayers)
+	for i := 0; i < numLayers; i++ {
+		attnIn := clonePlan(attnInProto)
+		attnIn.Name = fmt.Sprintf("l%d_attn_in", i)
+		setPlanKernelName(&attnIn.Kernels[0], fmt.Sprintf("l%d_qkv_proj", i))
+
+		post := clonePlan(postProto)
+		post.Name = fmt.Sprintf("l%d_post", i)
+		for k := range post.Kernels {
+			oldName := planKernelName(post.Kernels[k])
+			newName := strings.Replace(oldName, "l0_", fmt.Sprintf("l%d_", i), 1)
+			setPlanKernelName(&post.Kernels[k], newName)
+		}
+		layers[i] = DecoderLayerPlans{
+			LayerIndex: i,
+			AttnIn:     attnIn,
+			Post:       post,
+		}
+	}
+
+	bHead := NewBuilder()
+	xnFinal := bHead.Input("xn", BF16, m, h)
+	wHead := bHead.Input("w_head", BF16, vocab, h)
+	logits := bHead.MatMul(xnFinal, wHead)
+	headExpr, err := Optimize(bHead.G, logits)
+	if err != nil {
+		t.Fatalf("optimize head: %v", err)
+	}
+	head, err = Compile(headExpr, "lm_head", F32)
+	if err != nil {
+		t.Fatalf("compile head: %v", err)
+	}
+	if head.Kernels[0].GEMM != nil {
+		head.Kernels[0].GEMM.RowsPerBlock = 32
+	}
+	return norm, layers, head
+}
+
+func TestFuseDecoderLayerStack(t *testing.T) {
+	tests := []struct {
+		name          string
+		numLayers     int
+		withNorm      bool
+		withHead      bool
+		fuseFinalHead bool
+		packArena     bool
+		mega          bool
+		wantUnfused   int
+		wantFused     int
+	}{
+		{
+			name:          "1_layer_basic",
+			numLayers:     1,
+			withNorm:      true,
+			withHead:      true,
+			fuseFinalHead: false,
+			packArena:     true,
+			mega:          true,
+			wantUnfused:   4, // 2*1 + 2
+			wantFused:     4, // 1 + 1 + 2
+		},
+		{
+			name:          "1_layer_fuse_final_head",
+			numLayers:     1,
+			withNorm:      true,
+			withHead:      true,
+			fuseFinalHead: true,
+			packArena:     true,
+			mega:          true,
+			wantUnfused:   4, // 2*1 + 2
+			wantFused:     3, // Norm + FirstAttnIn + FinalPost(fused head)
+		},
+		{
+			name:          "4_layer_stack_with_norm_and_head",
+			numLayers:     4,
+			withNorm:      true,
+			withHead:      true,
+			fuseFinalHead: false,
+			packArena:     true,
+			mega:          true,
+			wantUnfused:   10, // 2*4 + 2
+			wantFused:     7,  // 4 + 2 + 1
+		},
+		{
+			name:          "4_layer_stack_fuse_final_head",
+			numLayers:     4,
+			withNorm:      true,
+			withHead:      true,
+			fuseFinalHead: true,
+			packArena:     true,
+			mega:          true,
+			wantUnfused:   10, // 2*4 + 2
+			wantFused:     6,  // 4 + 1 + 1
+		},
+		{
+			name:          "8_layer_stack_full",
+			numLayers:     8,
+			withNorm:      true,
+			withHead:      true,
+			fuseFinalHead: false,
+			packArena:     true,
+			mega:          true,
+			wantUnfused:   18, // 2*8 + 2
+			wantFused:     11, // 8 + 2 + 1
+		},
+		{
+			name:          "8_layer_stack_fuse_final_head",
+			numLayers:     8,
+			withNorm:      true,
+			withHead:      true,
+			fuseFinalHead: true,
+			packArena:     true,
+			mega:          true,
+			wantUnfused:   18, // 2*8 + 2
+			wantFused:     10, // 8 + 1 + 1
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			norm, layers, head := buildTestStackPlans(t, tc.numLayers, 1, 256, 256, 64, 256, 256)
+			origFirstKernels := len(layers[0].Post.Kernels)
+
+			cfg := CrossLayerStackConfig{
+				NamePrefix:         "llama_cross",
+				BridgeInput:        "xn",
+				RetainBridgeOutput: true,
+				FuseFinalHead:      tc.fuseFinalHead,
+				PackArena:          tc.packArena,
+				Mega:               tc.mega,
+			}
+			if tc.withNorm {
+				cfg.Norm = norm
+			}
+			if tc.withHead {
+				cfg.Head = head
+			}
+
+			stack, err := FuseDecoderLayerStack(layers, cfg)
+			if err != nil {
+				t.Fatalf("FuseDecoderLayerStack: %v", err)
+			}
+
+			// Input plans must not be mutated.
+			if len(layers[0].Post.Kernels) != origFirstKernels {
+				t.Fatalf("caller layer[0].Post was mutated: kernels=%d, want %d", len(layers[0].Post.Kernels), origFirstKernels)
+			}
+
+			if got := stack.UnfusedLaunchCount(); got != tc.wantUnfused {
+				t.Fatalf("UnfusedLaunchCount() = %d, want %d", got, tc.wantUnfused)
+			}
+			if got := stack.FusedLaunchCount(); got != tc.wantFused {
+				t.Fatalf("FusedLaunchCount() = %d, want %d", got, tc.wantFused)
+			}
+			if got := len(stack.CrossBoundaries); got != tc.numLayers-1 {
+				t.Fatalf("len(CrossBoundaries) = %d, want %d", got, tc.numLayers-1)
+			}
+			if tc.packArena && stack.ArenaBytes == 0 {
+				t.Fatal("expected non-zero ArenaBytes when PackArena=true")
+			}
+
+			if tc.mega {
+				if got := len(stack.CrossMegakernels); got != tc.numLayers-1 {
+					t.Fatalf("len(CrossMegakernels) = %d, want %d", got, tc.numLayers-1)
+				}
+				for i, mk := range stack.CrossMegakernels {
+					wantName := fmt.Sprintf("llama_cross_l%d_l%d_mega", i, i+1)
+					if mk.Name != wantName {
+						t.Fatalf("CrossMegakernels[%d].Name = %q, want %q", i, mk.Name, wantName)
+					}
+					attr := mk.StageAttributionMap()
+					if len(attr) != 6 {
+						t.Fatalf("CrossMegakernels[%d] StageAttributionMap len = %d, want 6", i, len(attr))
+					}
+					qkvStage := fmt.Sprintf("l%d_qkv_proj", i+1)
+					if _, ok := attr[qkvStage]; !ok {
+						t.Fatalf("CrossMegakernels[%d] StageAttributionMap missing %q in %v", i, qkvStage, attr)
+					}
+				}
+				if tc.fuseFinalHead {
+					if stack.FinalMegakernel == nil {
+						t.Fatal("expected FinalMegakernel when FuseFinalHead=true and Mega=true")
+					}
+					if stack.Head != nil {
+						t.Fatal("expected Head=nil when FuseFinalHead=true")
+					}
+					if len(stack.FinalMegakernel.StageAttributionMap()) != 6 {
+						t.Fatalf("FinalMegakernel StageAttributionMap len = %d, want 6", len(stack.FinalMegakernel.StageAttributionMap()))
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestFuseDecoderLayerStackErrors(t *testing.T) {
+	if _, err := FuseDecoderLayerStack(nil, CrossLayerStackConfig{}); err == nil {
+		t.Error("empty layers: expected error")
+	}
+	_, layers, _ := buildTestStackPlans(t, 2, 1, 256, 256, 64, 256, 256)
+	if _, err := FuseDecoderLayerStack(layers, CrossLayerStackConfig{
+		PackArena:     true,
+		ArenaMaxBytes: 16, // too small
+	}); err == nil {
+		t.Error("insufficient ArenaMaxBytes: expected error")
+	}
+	badLayers := slices.Clone(layers)
+	badLayers[1].AttnIn = nil
+	if _, err := FuseDecoderLayerStack(badLayers, CrossLayerStackConfig{}); err == nil {
+		t.Error("nil AttnIn: expected error")
+	}
+}

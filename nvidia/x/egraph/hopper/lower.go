@@ -19,7 +19,7 @@ type Plan struct {
 }
 
 // A PlanKernel is one launch of a Plan. Exactly one of GEMM, Tile, MMA,
-// UMMA, Quant, Row, Attention, TopK, Align and ExpertSum is set.
+// UMMA, Quant, Row, RoPE, Attention, TopK, Align and ExpertSum is set.
 type PlanKernel struct {
 	GEMM      *SkinnyGEMM
 	Tile      *TileGEMM
@@ -27,17 +27,18 @@ type PlanKernel struct {
 	UMMA      *UMMAGEMM
 	Quant     *NVFP4Quant
 	Row       *RowKernel
+	RoPE      *QKNormRoPEKVAppend
 	Attention *PagedAttention
 	TopK      *RowTopK
 	Align     *ExpertAlign
 	ExpertSum *ExpertSum
-	M         int      // GEMM, Tile, MMA, UMMA, Quant: rows of x
+	M         int      // GEMM, Tile, MMA, UMMA, Quant, RoPE: rows of x
 	MaxRows   int      // Grouped Tile: max rows per expert
 	Experts   int      // Grouped Tile: local expert count
 	Batch     int      // Attention: batch size
 	MaxKeys   int      // Attention: max keys per request
 	MaxPages  int      // Attention: max pages per request
-	Rows      int      // Row, TopK, Align, ExpertSum: rows or tokens
+	Rows      int      // Row, RoPE, TopK, Align, ExpertSum: rows or tokens
 	Args      []string // buffer names, in kernel parameter order (after leading size args)
 }
 
@@ -881,6 +882,10 @@ func (p *Plan) Source() (string, error) {
 			if src, err = k.Quant.CUDA(); err == nil {
 				l, err = k.Quant.Launcher()
 			}
+		case k.RoPE != nil:
+			if src, err = k.RoPE.CUDA(); err == nil {
+				l, err = k.RoPE.Launcher()
+			}
 		case k.Attention != nil:
 			if src, err = k.Attention.CUDA(); err == nil {
 				l, err = k.Attention.Launcher()
@@ -907,9 +912,21 @@ func (p *Plan) Source() (string, error) {
 		}
 		b.WriteString("\n" + src + "\n" + l)
 	}
+	mutatedInputs := make(map[string]bool)
+	for _, k := range p.Kernels {
+		if k.RoPE != nil && len(k.Args) >= 3 {
+			for _, a := range k.Args[len(k.Args)-3:] {
+				mutatedInputs[a] = true
+			}
+		}
+	}
 	var params []string
 	for _, t := range p.Inputs {
-		params = append(params, "const "+t.DType.cType()+"* "+t.Name)
+		qual := "const "
+		if mutatedInputs[t.Name] {
+			qual = ""
+		}
+		params = append(params, qual+t.DType.cType()+"* "+t.Name)
 	}
 	for _, t := range append(slices.Clone(p.Temps), p.Output) {
 		params = append(params, t.DType.cType()+"* "+t.Name)
@@ -931,6 +948,12 @@ func (p *Plan) Source() (string, error) {
 			fmt.Fprintf(&b, "    %s_launch(%d, %s, stream);\n", k.UMMA.Name, k.M, strings.Join(k.Args, ", "))
 		case k.Quant != nil:
 			fmt.Fprintf(&b, "    %s_launch(%d, %s, stream);\n", k.Quant.Name, k.M, strings.Join(k.Args, ", "))
+		case k.RoPE != nil:
+			rows := k.M
+			if rows <= 0 {
+				rows = k.Rows
+			}
+			fmt.Fprintf(&b, "    %s_launch(%d, %s, stream);\n", k.RoPE.Name, rows, strings.Join(k.Args, ", "))
 		case k.Attention != nil:
 			// Args are q, k_cache, v_cache, page_table, seqlens, k_scale, v_scale, [gate,] out, ws;
 			// Launcher expects max_pages after page_table.

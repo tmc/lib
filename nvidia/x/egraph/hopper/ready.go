@@ -21,9 +21,35 @@ const ReadyPrelude = `#ifndef EG_READY_PRELUDE
 #if defined(EG_HOST_EMU)
 #define EG_READY_STAGE(slot, epoch, expected, ptr, bytes) \
     eg_emu_ready_stage(slot, epoch, expected, ptr, bytes)
+inline void eg_emu_asm_bar_sync(const char* s) {
+    int id = 0, count = 0;
+    if (std::sscanf(s, "bar.sync %d, %d;", &id, &count) == 2) {
+        eg_emu_bar_sync(id, count);
+    }
+}
+#define asm
+#define volatile(...) eg_emu_asm_bar_sync(__VA_ARGS__)
 #else
 #define EG_READY_STAGE(slot, epoch, expected, ptr, bytes) ((void)0)
 #endif
+
+// eg_ready_resolve_epoch resolves the 1-based launch epoch for a persistent
+// megakernel of total_blocks CTAs. When epoch > 0, it returns epoch directly.
+// When epoch == 0 (e.g. inside an instantiated CUDA graph replayed without
+// host parameter updates), thread 0 of each CTA atomically claims one ticket
+// from *epoch_slot; since each launch dispatches total_blocks CTAs and
+// completes before the next launch begins, 1 + (ticket / total_blocks)
+// yields the identical 1-based epoch across all CTAs of the launch.
+EG_DEV unsigned int eg_ready_resolve_epoch(unsigned long long* epoch_slot, unsigned int epoch, unsigned int total_blocks) {
+    if (epoch != 0) return epoch;
+    __shared__ unsigned int eg_s_epoch;
+    if (threadIdx.x == 0) {
+        unsigned long long t = atomicAdd(epoch_slot, 1ULL);
+        eg_s_epoch = 1u + (unsigned int)(t / (unsigned long long)(total_blocks > 0 ? total_blocks : 1u));
+    }
+    __syncthreads();
+    return eg_s_epoch;
+}
 
 // eg_ready_signal publishes units of producer work for epoch on *slot.
 // atomicMax advances a word left by an earlier epoch to (epoch << 32) and
