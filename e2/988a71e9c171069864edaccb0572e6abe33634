@@ -8,3 +8,5 @@ ITERM_SESSION_ID: w2t1p9:5F115775-C0E8-401A-8938-3F7F36CE7215
 Manual Go-style commit fallback continues after prior helper failures (two attempts exhausted). Full ebpfhost host race and vet PASS. Four package Linux amd64/arm64 test compilation PASS; native execution NOT_RUN. Three semantic mutation controls killed. Candidate remains under full-scope review.
 
 Branch audit signed private host-observer refresh e2988a71e9c171069864edaccb0572e6abe33634; date 2026-10-30T20:36:00-07:00. Codex; GPT-6 family exact model ID unavailable; Claude Code not used; tty none; pid 97378; ITERM_SESSION_ID w2t1p9:5F115775-C0E8-401A-8938-3F7F36CE7215. Original source retained, native BPF NOT_RUN.
+
+Current-base host-observer gates: {'race': {'passes': 479, 'skips': ['TestNativeKernelBTF', 'TestResolveImage']}, 'consumer-race': {'passes': 67, 'skips': []}}; vet PASS; eight Linux amd64/arm64 test compilations PASS, execution NOT_RUN. Exact 32-path candidate delta preserved; source branch unchanged. Native BPF NOT_RUN. Receipt host-observer-aae-prepared.json.
