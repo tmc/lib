@@ -152,6 +152,7 @@ func generateNativeFullLayerBenchmarkCUDA(t *testing.T, fusedPlan *Plan, mega *M
 	b.WriteString("#include <cstdint>\n")
 	b.WriteString("#include <cstdio>\n")
 	b.WriteString("#include <cstdlib>\n")
+	b.WriteString("#include <cstring>\n")
 	b.WriteString("#include <vector>\n\n")
 	b.WriteString(unfusedSrc)
 	b.WriteString("\n")
@@ -160,7 +161,13 @@ func generateNativeFullLayerBenchmarkCUDA(t *testing.T, fusedPlan *Plan, mega *M
 	b.WriteString(megaLauncher)
 	b.WriteString("\n")
 
-	b.WriteString(`#define CHECK_CUDA(call) do { \
+	b.WriteString(`static inline uint16_t host_f32_to_bf16(float x) {
+    uint32_t u = 0;
+    std::memcpy(&u, &x, sizeof(u));
+    return (uint16_t)((u + 0x7fffu + ((u >> 16) & 1u)) >> 16);
+}
+
+#define CHECK_CUDA(call) do { \
     cudaError_t err__ = (call); \
     if (err__ != cudaSuccess) { \
         std::fprintf(stderr, "CUDA error at %s:%d: %s\n", __FILE__, __LINE__, cudaGetErrorString(err__)); \
@@ -204,7 +211,7 @@ int main() {
 
 	// Emit device allocations and deterministic initialization for all static inputs.
 	for idx, in := range fusedPlan.Inputs {
-		if in.Name == "l0_x" || strings.HasSuffix(in.Name, "_positions") || strings.HasSuffix(in.Name, "_seqlens") {
+		if in.Name == "x" || in.Name == "l0_x" || strings.HasSuffix(in.Name, "_positions") || strings.HasSuffix(in.Name, "_seqlens") {
 			continue
 		}
 		elems := fullLayerTensorElemCount(in.Shape)
@@ -231,11 +238,11 @@ int main() {
 		case strings.HasSuffix(in.Name, "_norm_w") && in.DType == F32:
 			fmt.Fprintf(&b, "        for (int i = 0; i < %d; ++i) h_buf[i] = 1.0f + 0.05f * std::sin((float)(i + %d));\n", elems, idx)
 		case strings.HasSuffix(in.Name, "_norm_w") && in.DType == BF16:
-			fmt.Fprintf(&b, "        for (int i = 0; i < %d; ++i) h_buf[i] = eg_f32_to_bf16(1.0f + 0.05f * std::cos((float)(i + %d)));\n", elems, idx)
+			fmt.Fprintf(&b, "        for (int i = 0; i < %d; ++i) h_buf[i] = host_f32_to_bf16(1.0f + 0.05f * std::cos((float)(i + %d)));\n", elems, idx)
 		case in.DType == BF16:
 			fmt.Fprintf(&b, "        for (int i = 0; i < %d; ++i) {\n", elems)
 			fmt.Fprintf(&b, "            float v = 0.04f * std::sin((float)i * 0.037f + (float)%d * 0.51f);\n", idx+1)
-			b.WriteString("            h_buf[i] = eg_f32_to_bf16(v);\n        }\n")
+			b.WriteString("            h_buf[i] = host_f32_to_bf16(v);\n        }\n")
 		case in.DType == F32:
 			fmt.Fprintf(&b, "        for (int i = 0; i < %d; ++i) h_buf[i] = 0.04f * std::sin((float)i * 0.037f + (float)%d * 0.51f);\n", elems, idx+1)
 		default:
@@ -265,7 +272,7 @@ int main() {
 	var refArgs, candArgs []string
 	for _, in := range fusedPlan.Inputs {
 		switch {
-		case in.Name == "l0_x":
+		case in.Name == "x" || in.Name == "l0_x":
 			refArgs = append(refArgs, "d_x_step[s]")
 			candArgs = append(candArgs, "d_x_step[s]")
 		case strings.HasSuffix(in.Name, "_positions"):
@@ -297,7 +304,9 @@ int main() {
 	b.WriteString("        }\n    };\n\n")
 
 	b.WriteString(`    run_ref();
+    CHECK_CUDA(cudaGetLastError());
     run_cand();
+    CHECK_CUDA(cudaGetLastError());
     CHECK_CUDA(cudaDeviceSynchronize());
 
     float max_abs_diff = 0.0f;
@@ -309,12 +318,15 @@ int main() {
         CHECK_CUDA(cudaMemcpy(h_ref.data(), d_out_ref[s], sizeof(float) * OUT_ELEMS, cudaMemcpyDeviceToHost));
         CHECK_CUDA(cudaMemcpy(h_cand.data(), d_out_cand[s], sizeof(float) * OUT_ELEMS, cudaMemcpyDeviceToHost));
         int best_r = 0, best_c = 0;
+        float step_diff = 0.0f;
         for (int i = 0; i < OUT_ELEMS; ++i) {
             float diff = std::fabs(h_ref[i] - h_cand[i]);
             if (diff > max_abs_diff) max_abs_diff = diff;
+            if (diff > step_diff) step_diff = diff;
             if (h_ref[i] > h_ref[best_r]) best_r = i;
             if (h_cand[i] > h_cand[best_c]) best_c = i;
         }
+        std::printf("STEP_DIFF_%d=%.8f ref0=%.6f cand0=%.6f best_r=%d best_c=%d\n", s, step_diff, h_ref[0], h_cand[0], best_r, best_c);
         ref_tokens[s] = best_r;
         cand_tokens[s] = best_c;
     }
@@ -338,7 +350,7 @@ int main() {
         std::vector<uint16_t> mut_w_down(w_down_elems);
         for (int r = 0; r < OUT_ELEMS; ++r) {
             float val = (r == 0) ? 12.0f : -12.0f;
-            uint16_t bits = eg_f32_to_bf16(val);
+            uint16_t bits = host_f32_to_bf16(val);
             for (int c = 0; c < 256; ++c) {
                 mut_w_down[r * 256 + c] = bits;
             }
@@ -673,7 +685,7 @@ func TestFullLayerMegakernelNativeSM121A(t *testing.T) {
 	}
 
 	if math.IsNaN(metrics.logitMaxAbs) || metrics.logitMaxAbs >= 1e-2 {
-		t.Fatalf("logit_max_abs = %g, want < 1e-2", metrics.logitMaxAbs)
+		t.Fatalf("logit_max_abs = %g, want < 1e-2\n%s", metrics.logitMaxAbs, rawOut)
 	}
 	if len(metrics.refTokens) != 8 || !slices.Equal(metrics.refTokens, metrics.candTokens) {
 		t.Fatalf("token parity mismatch: ref=%v cand=%v", metrics.refTokens, metrics.candTokens)

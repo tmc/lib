@@ -295,6 +295,7 @@ func generateNativeSpecVerifyBenchmarkCUDA(t *testing.T, mega *FusedVerifySample
 	b.WriteString("#include <cstdint>\n")
 	b.WriteString("#include <cstdio>\n")
 	b.WriteString("#include <cstdlib>\n")
+	b.WriteString("#include <cstring>\n")
 	b.WriteString("#include <vector>\n\n")
 	b.WriteString(unfusedSrc)
 	b.WriteString("\n")
@@ -303,7 +304,13 @@ func generateNativeSpecVerifyBenchmarkCUDA(t *testing.T, mega *FusedVerifySample
 	b.WriteString(megaLauncher)
 	b.WriteString("\n")
 
-	b.WriteString(`#define CHECK_CUDA(call) do { \
+	b.WriteString(`static inline uint16_t host_f32_to_bf16(float x) {
+    uint32_t u = 0;
+    std::memcpy(&u, &x, sizeof(u));
+    return (uint16_t)((u + 0x7fffu + ((u >> 16) & 1u)) >> 16);
+}
+
+#define CHECK_CUDA(call) do { \
     cudaError_t err__ = (call); \
     if (err__ != cudaSuccess) { \
         std::fprintf(stderr, "CUDA error at %s:%d: %s\n", __FILE__, __LINE__, cudaGetErrorString(err__)); \
@@ -551,14 +558,14 @@ int main() {
 			fmt.Fprintf(&b, "            for (int c = 0; c < %d; ++c) {\n", in.Shape[1])
 			b.WriteString("                float v = 0.06f * std::sin((float)r * 0.31f + (float)c * 0.17f);\n")
 			b.WriteString("                if (r == 13 || r == 41 || r == 97) v += 0.45f * std::cos((float)c * 0.11f);\n")
-			b.WriteString("                h_buf[r * 64 + c] = eg_f32_to_bf16(v);\n")
+			b.WriteString("                h_buf[r * 64 + c] = host_f32_to_bf16(v);\n")
 			b.WriteString("            }\n        }\n")
 		case in.Name == "final_x":
 			fmt.Fprintf(&b, "        for (int i = 0; i < %d; ++i) h_buf[i] = 0.8f * std::cos((float)i * 0.11f);\n", elems)
 		case in.DType == hopper.BF16:
 			fmt.Fprintf(&b, "        for (int i = 0; i < %d; ++i) {\n", elems)
 			fmt.Fprintf(&b, "            float v = 0.05f * std::sin((float)i * 0.043f + (float)%d * 0.37f);\n", idx+1)
-			b.WriteString("            h_buf[i] = eg_f32_to_bf16(v);\n        }\n")
+			b.WriteString("            h_buf[i] = host_f32_to_bf16(v);\n        }\n")
 		default:
 			fmt.Fprintf(&b, "        for (int i = 0; i < %d; ++i) h_buf[i] = 0.05f * std::sin((float)i * 0.043f + (float)%d * 0.37f);\n", elems, idx+1)
 		}

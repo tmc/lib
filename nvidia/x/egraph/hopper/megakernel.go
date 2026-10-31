@@ -557,6 +557,11 @@ func stageDeviceParts(st MegaStage, seenHelpers map[string]bool) (prelude, fnBod
 	body := raw[idx+len(marker):]
 	body = strings.ReplaceAll(body, "blockIdx.", "eg_bidx.")
 	body = strings.ReplaceAll(body, "gridDim.", "eg_gdim.")
+	if k.Attention != nil && !k.Attention.WGMMA {
+		body = strings.ReplaceAll(body,
+			"    alignas(16) __shared__ unsigned char ring[RING_BYTES];",
+			"#if defined(EG_HOST_EMU)\n    alignas(16) __shared__ unsigned char ring[RING_BYTES];\n#else\n    extern __shared__ __align__(16) unsigned char ring[];\n#endif")
+	}
 	if threads < 256 {
 		body = strings.ReplaceAll(body, "__syncthreads()", fmt.Sprintf("asm volatile(\"bar.sync 1, %d;\")", threads))
 		openIdx := strings.Index(body, ") {")
