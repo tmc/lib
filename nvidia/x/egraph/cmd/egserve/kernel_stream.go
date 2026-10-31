@@ -127,12 +127,13 @@ type KernelStreamIteration struct {
 }
 
 // AnnotatedKernelResponse is returned by GET /v1/kernels/annotated when format=json.
-// It exposes both the full 4-iteration trajectory in Iterations and the promoted
+// It exposes both the full evolutionary trajectory in Iterations and the promoted
 // final iteration's fields at the top level for convenient consumption.
 type AnnotatedKernelResponse struct {
 	Arch                  string                       `json:"arch"`
 	Mode                  string                       `json:"mode"`
 	BucketM               int                          `json:"bucket_m"`
+	Provenance            string                       `json:"provenance,omitempty"`
 	KernelName            string                       `json:"kernel_name"`
 	BarrierSafetyVerified bool                         `json:"barrier_safety_verified"`
 	Iteration             int                          `json:"iteration"`
@@ -255,6 +256,14 @@ func (s *EGServer) BuildKernelStreamIterations(mode string, bucketM int) ([]Kern
 		bucketM = 1
 	}
 	if mode == "simple" {
+		s.liveMu.RLock()
+		cached := s.liveSimpleIters
+		s.liveMu.RUnlock()
+		if len(cached) > 0 {
+			out := make([]KernelStreamIteration, len(cached))
+			copy(out, cached)
+			return out, nil
+		}
 		return s.buildSimpleKernelStreamIterations(bucketM), nil
 	}
 
@@ -1044,6 +1053,12 @@ func (s *EGServer) buildSimpleKernelStreamIterations(bucketM int) []KernelStream
 			bestSpeedup = m.speedup
 			bestLatency = m.latencyUs
 		}
+		sqAccumLine := "        sq += xv.x*xv.x + xv.y*xv.y + xv.z*xv.z + xv.w*xv.w; s_red[tid] = sq; __syncthreads();"
+		if strings.Contains(m.loadExpr, "float v =") {
+			sqAccumLine = "        sq += v * v; s_red[tid] = sq; __syncthreads();"
+		} else if strings.Contains(m.loadExpr, "float2 v2 =") {
+			sqAccumLine = "        sq += v2.x * v2.x + v2.y * v2.y; s_red[tid] = sq; __syncthreads();"
+		}
 		lines := []string{
 			"// Stage s0: Fused RMSNorm (" + m.phase + ")",
 			"__device__ void stage0_rmsnorm(const float* __restrict__ x, const float* __restrict__ w, float* s_norm, int tid) {",
@@ -1051,12 +1066,12 @@ func (s *EGServer) buildSimpleKernelStreamIterations(bucketM int) []KernelStream
 			"    float sq = 0.0f;",
 			"    for (int i = tid; i < 256; i += 256) {",
 			"        " + m.loadExpr,
-			"        sq += 1.0f;",
+			sqAccumLine,
 			"    }",
 			"    " + m.reduceComment,
 			"    " + m.reduceStmt,
 			"    float inv_rms = rsqrtf(s_red[0] * (1.0f / 1024.0f) + 1e-5f);",
-			"    float4 wv = reinterpret_cast<const float4*>(w)[tid];",
+			"    float4 xv = reinterpret_cast<const float4*>(x)[tid], wv = reinterpret_cast<const float4*>(w)[tid]; (void)xv; (void)wv;",
 			"    " + m.normStore,
 			"}",
 			"// Stage s1: SwiGLU + Warp GEMV Epilogue (" + m.phase + ")",
@@ -1074,8 +1089,11 @@ func (s *EGServer) buildSimpleKernelStreamIterations(bucketM int) []KernelStream
 			m.launchBounds,
 			"    " + m.smemDecl,
 			"    stage0_rmsnorm(x, w, s_norm, threadIdx.x);",
-			"    stage1_swiglu_gemv(s_norm, W_up, out, threadIdx.x)}",
+			"    stage1_swiglu_gemv(s_norm, W_up, out, threadIdx.x); }",
 		}
+		ver := VerifySimpleKernelCandidate(lines)
+		rawVerified := m.rawVerified && ver.RAWBarrierOK
+		uniformOK := m.rawVerified && ver.UniformBarrierOK
 
 		s0CostNs := round2(m.latencyUs * 380.0)
 		s1CostNs := round2(m.latencyUs * 620.0)
@@ -1144,9 +1162,9 @@ func (s *EGServer) buildSimpleKernelStreamIterations(bucketM int) []KernelStream
 				MathPipePct:            round1(s0MathPct),
 				DominantReason:         "long_scoreboard",
 				RecommendedRewrite:     m.s0Rule,
-				RAWVerified:            m.rawVerified,
+				RAWVerified:            rawVerified,
 				ArenaNonAliased:        true,
-				NamedBarrierUniform:    m.rawVerified,
+				NamedBarrierUniform:    uniformOK,
 			},
 			{
 				StageIndex:             1,
@@ -1180,9 +1198,9 @@ func (s *EGServer) buildSimpleKernelStreamIterations(bucketM int) []KernelStream
 				MathPipePct:            round1(s1MathPct),
 				DominantReason:         "mio_throttle",
 				RecommendedRewrite:     m.s1Rule,
-				RAWVerified:            m.rawVerified,
+				RAWVerified:            rawVerified,
 				ArenaNonAliased:        true,
-				NamedBarrierUniform:    m.rawVerified,
+				NamedBarrierUniform:    uniformOK,
 			},
 		}
 		anns := map[int]InlineLineAnnotation{
@@ -2081,10 +2099,35 @@ func (s *EGServer) handleKernelsAnnotated(w http.ResponseWriter, r *http.Request
 	bucketM := normalizeBucketM(bucketRaw)
 	format := strings.ToLower(strings.TrimSpace(q.Get("format")))
 
+	if mode == "simple" && (q.Get("live") == "1" || strings.EqualFold(q.Get("live"), "true")) {
+		sshHost := strings.TrimSpace(q.Get("ssh_host"))
+		if sshHost == "" {
+			sshHost = s.cfg.SSHHost
+		}
+		baseIters := s.buildSimpleKernelStreamIterations(bucketM)
+		if liveIters, prov, err := CompileSimpleKernelTrajectoryLive(r.Context(), baseIters, LiveNVCCConfig{
+			Arch:     s.cfg.Arch,
+			NVCC:     s.cfg.NVCCPath,
+			NVDISASM: s.cfg.NVDISASMPath,
+			SSHHost:  sshHost,
+		}); err == nil {
+			s.liveMu.Lock()
+			s.liveSimpleIters = liveIters
+			s.liveProvenance = prov
+			s.liveMu.Unlock()
+		}
+	}
+
 	iters, err := s.BuildKernelStreamIterations(mode, bucketM)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+	s.liveMu.RLock()
+	prov := s.liveProvenance
+	s.liveMu.RUnlock()
+	if prov == "" {
+		prov = fmt.Sprintf("static-verified + egraph-calibrated (%s)", s.cfg.Arch)
 	}
 	selectedIdx := len(iters) - 1
 	if iterStr := strings.TrimSpace(q.Get("iter")); iterStr != "" {
@@ -2114,6 +2157,7 @@ func (s *EGServer) handleKernelsAnnotated(w http.ResponseWriter, r *http.Request
 		Arch:                  s.cfg.Arch,
 		Mode:                  mode,
 		BucketM:               bucketM,
+		Provenance:            prov,
 		KernelName:            promoted.KernelName,
 		BarrierSafetyVerified: s.barrierVerified,
 		Iteration:             promoted.Iteration,
@@ -2784,6 +2828,7 @@ const inspectorHTMLPage = `<!DOCTYPE html>
       <span id="status-pill" class="status-pill"><span class="status-dot"></span><span id="status-text">LIVE</span></span>
       <span>E-GRAPH KERNEL EVOLUTION TELEMETRY (CUPTI / PTXAS / SASS)</span>
       <span id="speedup-badge" class="brand-metric">CHAMPION: 1.00x -&gt; 6.05x</span>
+      <span id="provenance-badge" class="badge badge-stage" style="padding:0.15rem 0.45rem;font-size:0.65rem">STATIC VERIFIED + CALIBRATED</span>
     </div>
     <div class="controls">
       <div class="transport-group">
@@ -2794,6 +2839,7 @@ const inspectorHTMLPage = `<!DOCTYPE html>
         <input type="range" id="scrubber-range" min="0" max="23" value="0">
         <span class="scrubber-readout" id="scrubber-readout">#00 / #23</span>
       </div>
+      <button id="live-compile-btn" title="Compile all 24 candidates live through nvcc --cubin -Xptxas -v and nvdisasm -c">Compile Live (nvcc/ptxas)</button>
       <label>Kernel:
         <select id="mode-select">
           <option value="simple" selected>Simple Fused RMSNorm+SwiGLU+GEMV (24 cands)</option>
@@ -3350,9 +3396,42 @@ const inspectorHTMLPage = `<!DOCTYPE html>
       const data = await resp.json();
       catalogFrames = data.iterations || [data];
       scrubberRange.max = Math.max(0, catalogFrames.length - 1);
+      if (data.provenance) {
+        const pb = document.getElementById('provenance-badge');
+        pb.textContent = data.provenance.toUpperCase();
+        if (data.provenance.toLowerCase().includes('live')) {
+          pb.className = 'badge badge-delta';
+        }
+      }
       renderViewAt(0);
     } catch (_) {}
     connectEventSource();
+  }
+
+  const liveCompileBtn = document.getElementById('live-compile-btn');
+  if (liveCompileBtn) {
+    liveCompileBtn.addEventListener('click', async () => {
+      const origText = liveCompileBtn.textContent;
+      liveCompileBtn.textContent = 'Compiling 24 kernels (nvcc/ptxas)...';
+      liveCompileBtn.disabled = true;
+      try {
+        const resp = await fetch('/v1/kernels/compile?ssh_host=dgx', { method: 'POST' });
+        const data = await resp.json();
+        if (data && data.iterations && data.iterations.length > 0) {
+          catalogFrames = data.iterations;
+          maxSeenIndex = catalogFrames.length - 1;
+          scrubberRange.max = maxSeenIndex;
+          const pb = document.getElementById('provenance-badge');
+          if (pb && data.provenance) {
+            pb.textContent = data.provenance.toUpperCase();
+            pb.className = 'badge badge-delta';
+          }
+          renderViewAt(inspectedIndex);
+        }
+      } catch (_) {}
+      liveCompileBtn.textContent = origText;
+      liveCompileBtn.disabled = false;
+    });
   }
 
   function connectEventSource() {

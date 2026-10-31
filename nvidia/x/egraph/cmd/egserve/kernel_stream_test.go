@@ -386,9 +386,84 @@ func TestSimpleKernelEvolutionCurrentBestVsCandidate(t *testing.T) {
 		"latency-spark-svg",
 		"replay-btn",
 		"scrubber-range",
+		"live-compile-btn",
+		"provenance-badge",
 	} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("GET / missing %q", want)
 		}
+	}
+}
+
+func TestLiveNVCCParserAndStaticVerifier(t *testing.T) {
+	srv, err := NewEGServer(ServerConfig{
+		Arch:      "sm_121a",
+		HiddenDim: 256,
+		IntermDim: 512,
+		Layers:    4,
+	})
+	if err != nil {
+		t.Fatalf("NewEGServer: %v", err)
+	}
+	iters := srv.buildSimpleKernelStreamIterations(1)
+	if len(iters) != 24 {
+		t.Fatalf("len(iters) = %d, want 24", len(iters))
+	}
+
+	// Verify static barrier and dataflow analyzer on all 24 candidates.
+	if v := VerifySimpleKernelCandidate(iters[8].CUDALines); v.CrossWarpReduceOK {
+		t.Fatalf("candidate #08 expected CrossWarpReduceOK=false, got %+v", v)
+	}
+	if v := VerifySimpleKernelCandidate(iters[14].CUDALines); v.RAWBarrierOK {
+		t.Fatalf("candidate #14 expected RAWBarrierOK=false, got %+v", v)
+	}
+	if v := VerifySimpleKernelCandidate(iters[15].CUDALines); v.UniformBarrierOK {
+		t.Fatalf("candidate #15 expected UniformBarrierOK=false, got %+v", v)
+	}
+	if v := VerifySimpleKernelCandidate(iters[20].CUDALines); v.AsyncWaitGroupOK {
+		t.Fatalf("candidate #20 expected AsyncWaitGroupOK=false, got %+v", v)
+	}
+	for _, it := range iters {
+		if it.Promoted {
+			v := VerifySimpleKernelCandidate(it.CUDALines)
+			if !v.Passed() {
+				t.Fatalf("promoted candidate #%02d (%s) failed static verifier: %+v", it.Iteration, it.Phase, v)
+			}
+		}
+	}
+
+	cudaTU := BuildCompilableSimpleTrajectoryCUDA(iters)
+	for _, want := range []string{
+		"cand_00_fused_rmsnorm_swiglu_gemv",
+		"cand_23_fused_rmsnorm_swiglu_gemv",
+		"#include <cuda_runtime.h>",
+	} {
+		if !strings.Contains(cudaTU, want) {
+			t.Fatalf("compilable TU missing %q", want)
+		}
+	}
+
+	mockPTXAS := "ptxas info    : 0 bytes gmem\n" +
+		"ptxas info    : Compiling entry function 'cand_23_fused_rmsnorm_swiglu_gemv' for 'sm_121a'\n" +
+		"ptxas info    : Function properties for cand_23_fused_rmsnorm_swiglu_gemv\n" +
+		"    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\n" +
+		"ptxas info    : Used 44 registers, used 1 barriers, 5120 bytes smem, 384 bytes cmem[0]\n"
+	mockPTX := ".visible .entry cand_23_fused_rmsnorm_swiglu_gemv(\n) {\n" +
+		"  ld.global.nc.v4.f32 {%f1, %f2, %f3, %f4}, [%rd1];\n" +
+		"  shfl.sync.bfly.b32 %r5, %r4, 16, 31, -1;\n" +
+		"  ld.shared.v4.f32 {%f8, %f9, %f10, %f11}, [%r6];\n" +
+		"  fma.rn.f32 %f12, %f8, %f9, %f12;\n}\n"
+	mockSASS := "        .text.cand_23_fused_rmsnorm_swiglu_gemv:\n" +
+		"        /*0000*/                   LDG.E.128 R4, [R2] ;  /* 0x0000000000007981 */\n" +
+		"        /*0010*/                   SHFL.BFY PT, R8, R4, 0x10, 0x1f ; /* 0x0000000000007389 */\n" +
+		"        /*0020*/                   LDS.128 R12, [R6] ;   /* 0x0000000000007984 */\n" +
+		"        /*0030*/                   FFMA R16, R12, R14, R16 ; /* 0x0000000000007223 */\n"
+
+	liveIters, prov, err := applyLiveCompilerOutputs(iters, mockPTXAS, mockPTX, mockSASS, "live nvcc test")
+	if err != nil {
+		t.Fatalf("applyLiveCompilerOutputs: %v", err)
+	}
+	if prov != "live nvcc test" || liveIters[23].MaxRegs != 44 {
+		t.Fatalf("unexpected liveIters[23]: regs=%d prov=%q", liveIters[23].MaxRegs, prov)
 	}
 }

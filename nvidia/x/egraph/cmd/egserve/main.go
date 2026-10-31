@@ -47,6 +47,10 @@ type ServerConfig struct {
 	HBMPageCapacity int
 	C2CPageCapacity int
 	BatchWindow     time.Duration
+	LiveNVCC        bool
+	SSHHost         string
+	NVCCPath        string
+	NVDISASMPath    string
 }
 
 func (c ServerConfig) withDefaults() ServerConfig {
@@ -250,6 +254,9 @@ type EGServer struct {
 	barrierVerified bool
 
 	mu             sync.Mutex
+	liveMu         sync.RWMutex
+	liveSimpleIters []KernelStreamIteration
+	liveProvenance string
 	reqCounter     atomic.Uint64
 	epochCounter   atomic.Uint64
 	lastBucketM    int
@@ -386,11 +393,27 @@ func NewEGServer(cfg ServerConfig) (*EGServer, error) {
 	srv.mux.HandleFunc("/", srv.handleUI)
 	srv.mux.HandleFunc("/ui", srv.handleUI)
 	srv.mux.HandleFunc("/v1/kernels/annotated", srv.handleKernelsAnnotated)
+	srv.mux.HandleFunc("/v1/kernels/compile", srv.handleKernelsCompile)
 	srv.mux.HandleFunc("/v1/kernels/stream", srv.handleKernelsStream)
 	srv.mux.HandleFunc("/v1/completions", srv.handleCompletions)
 	srv.mux.HandleFunc("/v1/chat/completions", srv.handleChatCompletions)
 	srv.mux.HandleFunc("/v1/flight/trace.json", srv.handleFlightTrace)
 	srv.mux.HandleFunc("/v1/pgo/status", srv.handlePGOStatus)
+
+	if cfg.LiveNVCC || strings.TrimSpace(cfg.SSHHost) != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		baseIters := srv.buildSimpleKernelStreamIterations(1)
+		if liveIters, prov, err := CompileSimpleKernelTrajectoryLive(ctx, baseIters, LiveNVCCConfig{
+			Arch:     cfg.Arch,
+			NVCC:     cfg.NVCCPath,
+			NVDISASM: cfg.NVDISASMPath,
+			SSHHost:  cfg.SSHHost,
+		}); err == nil {
+			srv.liveSimpleIters = liveIters
+			srv.liveProvenance = prov
+		}
+		cancel()
+	}
 
 	return srv, nil
 }
@@ -918,11 +941,13 @@ func run(args []string, stdout, stderr io.Writer) int {
 	intermDim := fs.Int("interm-dim", 512, "MLP intermediate dimension")
 	layers := fs.Int("layers", 4, "number of transformer layers")
 	pgoCacheDir := fs.String("pgo-cache-dir", "", "optional directory for VerifiedPGOCache")
+	liveNVCC := fs.Bool("live-nvcc", false, "compile and disassemble simple trajectory live with local nvcc/nvdisasm")
+	sshDGX := fs.String("ssh-dgx", "", "optional SSH host (e.g. dgx) for live nvcc/ptxas/nvdisasm compilation")
 	selfTest := fs.Bool("self-test", false, "run deterministic multi-turn request cycle and print JSON summary")
 	demoStream := fs.Bool("demo-stream", false, "print inline-annotated megakernel stream preview and inspector URLs")
 
 	fs.Usage = func() {
-		fmt.Fprintf(stderr, "usage: egserve [-addr :8080] [-arch sm_121a] [-hidden-dim 256] [-interm-dim 512] [-layers 4] [-pgo-cache-dir dir] [-self-test] [-demo-stream]\n")
+		fmt.Fprintf(stderr, "usage: egserve [-addr :8080] [-arch sm_121a] [-hidden-dim 256] [-interm-dim 512] [-layers 4] [-pgo-cache-dir dir] [-live-nvcc] [-ssh-dgx host] [-self-test] [-demo-stream]\n")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
@@ -945,6 +970,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		IntermDim:   *intermDim,
 		Layers:      *layers,
 		PGOCacheDir: *pgoCacheDir,
+		LiveNVCC:    *liveNVCC,
+		SSHHost:     *sshDGX,
 	})
 	if err != nil {
 		fmt.Fprintf(stderr, "egserve: %v\n", err)
