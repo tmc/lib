@@ -1,0 +1,10 @@
+commit: b366136ff8c9f11a155b7723caef8e6c5fc4bcdb
+date: 2026-10-31T03:40:33.672906+00:00
+agent: Codex
+claude-code version: not applicable
+model: GPT-6
+tty: not a tty
+pid: 13794
+ITERM_SESSION_ID: w2t6p4:D1AA3E70-57F5-406D-96B0-629D770FC19E
+autohelper: two attempts failed missing Anthropic API key; instructed manual fallback
+validation: scoped fake/owned CPU controls and race/vet; Linux arm64 crosscompile only; actual LanguageStack NOT_RUN pending review/root authorization
