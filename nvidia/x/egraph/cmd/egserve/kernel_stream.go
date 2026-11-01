@@ -2950,6 +2950,11 @@ const inspectorHTMLPage = `<!DOCTYPE html>
       <button id="live-compile-btn" title="Compile all 24 candidates live through nvcc --cubin -lineinfo -Xptxas -v and nvdisasm -c -g">Compile Live (nvcc/ptxas)</button>
       <button id="live-gpu-btn" title="Run paired CUDA event timing &amp; numerical verification on GB10 (sm_121a) under gpu-lock">Benchmark GPU (dgx)</button>
       <button id="auto-synth-btn" title="Run autonomous multi-round E-Graph + UCB1 beam search synthesizer from #00">Auto-Synthesize (Beam)</button>
+      <button id="toggle-sbdag-btn" title="Inspect SASS Scoreboard producer->consumer barrier dependency DAG &amp; warp issue cycles">Scoreboard DAG</button>
+      <button id="toggle-quant-btn" title="Explore FP32 -> BF16 -> INT8 -> FP8 -> NVFP4 -> 2:4 Sparse NVFP4 Accuracy vs Latency Pareto frontier">Quant Pareto</button>
+      <button id="toggle-calibrate-btn" title="Run closed-loop counter-feedback E-Graph cost model ridge regression calibration">Calibrate Cost</button>
+      <button id="toggle-occmap-btn" title="Inspect SM Register/Shared-Mem occupancy cliff staircase &amp; producer/consumer warp specialization">Occupancy Map</button>
+      <button id="toggle-dist-btn" title="Inspect Multi-GPU / NVL72 NVLS multimem.ld_reduce AllReduce + GEMV epilogue fusion">NVL72 Multimem</button>
       <button id="toggle-multiarch-btn" title="Compare target-specialized CUDA/PTX/SASS across Hopper sm_90a, Blackwell sm_100a, GB10 sm_121a, and Rubin sm_130a">Multi-Arch Matrix</button>
       <button id="toggle-sandbox-btn" title="Open interactive CUDA live-edit &amp; E-Graph rewrite sandbox">Rewrite Sandbox</button>
       <label>Kernel:
@@ -3044,6 +3049,46 @@ const inspectorHTMLPage = `<!DOCTYPE html>
       <span id="multiarch-status-text" style="color:var(--fg-1)">Unified E-Graph Equivalence-Class Extraction</span>
     </div>
     <div class="multiarch-grid" id="multiarch-cards-grid"></div>
+  </section>
+
+  <section class="sandbox-drawer" id="sbdag-drawer">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.45rem">
+      <strong style="color:var(--accent)">WARP-STATE &amp; SASS SCOREBOARD DEPENDENCY DAG (GET /v1/kernels/scoreboard-dag)</strong>
+      <span id="sbdag-status-text" style="color:var(--fg-1)">Loading SASS scoreboard producer-&gt;consumer graph...</span>
+    </div>
+    <div id="sbdag-content-grid" style="display:grid;grid-template-columns:1.1fr 1fr;gap:0.65rem"></div>
+  </section>
+
+  <section class="sandbox-drawer" id="quant-drawer">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.45rem">
+      <strong style="color:var(--accent)">MULTI-PRECISION &amp; SUB-BYTE QUANTIZATION PARETO FRONTIER (GET /v1/kernels/quant-pareto — FP32 -&gt; BF16 -&gt; INT8 -&gt; FP8 -&gt; NVFP4 -&gt; 2:4 Sparse NVFP4)</strong>
+      <span id="quant-status-text" style="color:var(--fg-1)">Loading precision/sparsity Pareto frontier...</span>
+    </div>
+    <div id="quant-cards-grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:0.45rem"></div>
+  </section>
+
+  <section class="sandbox-drawer" id="calibrate-drawer">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.45rem">
+      <strong style="color:var(--accent)">CLOSED-LOOP COUNTER-FEEDBACK E-GRAPH COST-MODEL AUTO-TUNER (POST /v1/egraph/calibrate)</strong>
+      <span id="calibrate-status-text" style="color:var(--fg-1)">Fitting hardware-calibrated ridge regression posterior...</span>
+    </div>
+    <div id="calibrate-content-box"></div>
+  </section>
+
+  <section class="sandbox-drawer" id="occmap-drawer">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.45rem">
+      <strong style="color:var(--accent)">SM REGISTER/SHARED-MEMORY OCCUPANCY CLIFF &amp; WARP-SPECIALIZATION EXPLORER (GET /v1/kernels/occupancy-map)</strong>
+      <span id="occmap-status-text" style="color:var(--fg-1)">Loading SM resource phase space...</span>
+    </div>
+    <div id="occmap-content-box" style="display:grid;grid-template-columns:1fr 1.1fr;gap:0.65rem"></div>
+  </section>
+
+  <section class="sandbox-drawer" id="dist-drawer">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.45rem">
+      <strong style="color:var(--accent)">MULTI-GPU / NVL72 NVLS MULTIMEM ALLREDUCE + GEMV EPILOGUE FUSION &amp; DISAGGREGATED P/D (GET /v1/kernels/distributed-fusion)</strong>
+      <span id="dist-status-text" style="color:var(--fg-1)">Loading NVSwitch NVLS multimem.ld_reduce + Grace C2C KV prefetch tiers...</span>
+    </div>
+    <div id="dist-cards-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:0.5rem"></div>
   </section>
 
   <section class="sandbox-drawer" id="sandbox-drawer">
@@ -3622,6 +3667,16 @@ const inspectorHTMLPage = `<!DOCTYPE html>
     const expBundle = document.getElementById('export-bundle-link');
     if (expCu) expCu.href = '/v1/kernels/export?format=cu&iter=' + idx;
     if (expBundle) expBundle.href = '/v1/kernels/export?format=egbundle&iter=' + idx;
+
+    // Refresh any open candidate-scoped drawers
+    const maDrawer = document.getElementById('multiarch-drawer');
+    if (maDrawer && maDrawer.classList.contains('open')) loadMultiArchMatrix(idx);
+    const sbDrawer = document.getElementById('sbdag-drawer');
+    if (sbDrawer && sbDrawer.classList.contains('open')) loadScoreboardDAG(idx);
+    const qtDrawer = document.getElementById('quant-drawer');
+    if (qtDrawer && qtDrawer.classList.contains('open')) loadQuantPareto(idx);
+    const dsDrawer = document.getElementById('dist-drawer');
+    if (dsDrawer && dsDrawer.classList.contains('open')) loadDistributedFusion(idx);
   }
 
   function setPlayState(paused, modeLabel) {
@@ -3896,6 +3951,215 @@ const inspectorHTMLPage = `<!DOCTYPE html>
       if (multiarchDrawer.classList.contains('open')) {
         loadMultiArchMatrix(inspectedIndex);
       }
+    });
+  }
+
+  // 1. Scoreboard Dependency DAG Drawer
+  const toggleSbdagBtn = document.getElementById('toggle-sbdag-btn');
+  const sbdagDrawer = document.getElementById('sbdag-drawer');
+  async function loadScoreboardDAG(iterIdx) {
+    const grid = document.getElementById('sbdag-content-grid');
+    const stText = document.getElementById('sbdag-status-text');
+    if (!grid) return;
+    try {
+      const resp = await fetch('/v1/kernels/scoreboard-dag?iter=' + iterIdx);
+      const d = await resp.json();
+      if (stText) {
+        stText.textContent = '#' + pad2(d.iteration) + ' (' + d.phase + ') | Critical Path: ' + d.total_critical_cycles +
+          ' cyc | Stall: ' + d.total_stall_cycles + ' cyc | Overlap: ' + d.pipeline_overlap_pct.toFixed(1) + '% | ' + d.bottleneck_edge_summary;
+      }
+      let edgeRows = (d.edges || []).map(e =>
+        '<tr>' +
+          '<td>0x' + e.from_pc.toString(16) + ' ' + e.from_mnemonic + ' (L' + e.from_source_line + ')</td>' +
+          '<td>0x' + e.to_pc.toString(16) + ' ' + e.to_mnemonic + ' (L' + e.to_source_line + ')</td>' +
+          '<td><span class="badge ' + (e.is_critical_path ? 'badge-spill' : 'badge-stage') + '">' + e.barrier_id + '</span></td>' +
+          '<td>' + e.latency_cycles + ' cyc</td>' +
+          '<td style="color:var(--fg-1)">' + e.resolution_action + '</td>' +
+        '</tr>'
+      ).join('');
+      let nodeRows = (d.nodes || []).slice(0, 12).map(n =>
+        '<tr>' +
+          '<td>0x' + n.pc.toString(16) + ' (L' + n.source_line + ')</td>' +
+          '<td>' + n.mnemonic + '</td>' +
+          '<td>' + n.pipe_unit + '</td>' +
+          '<td>w=' + n.write_barrier + ' / ' + n.wait_mask + '</td>' +
+          '<td>issue=' + n.issue_cycle + ' rdy=' + n.ready_cycle + ' (stall=' + n.stall_cycles + ')</td>' +
+        '</tr>'
+      ).join('');
+      grid.innerHTML =
+        '<div><div style="margin-bottom:0.25rem;color:var(--fg-1);font-weight:700">Producer -&gt; Consumer Scoreboard Barrier Edges:</div>' +
+        '<table class="sass-table"><thead><tr><th>Producer</th><th>Consumer</th><th>Barrier</th><th>Cycles</th><th>E-Graph Action</th></tr></thead><tbody>' + edgeRows + '</tbody></table></div>' +
+        '<div><div style="margin-bottom:0.25rem;color:var(--fg-1);font-weight:700">Warp Issue / Ready Cycle Schedule:</div>' +
+        '<table class="sass-table"><thead><tr><th>PC (Line)</th><th>Mnemonic</th><th>Pipe</th><th>Barriers</th><th>Cycle Timeline</th></tr></thead><tbody>' + nodeRows + '</tbody></table></div>';
+    } catch (_) {}
+  }
+  if (toggleSbdagBtn && sbdagDrawer) {
+    toggleSbdagBtn.addEventListener('click', () => {
+      sbdagDrawer.classList.toggle('open');
+      if (sbdagDrawer.classList.contains('open')) loadScoreboardDAG(inspectedIndex);
+    });
+  }
+
+  // 2. Multi-Precision & Sub-Byte Quantization Pareto Drawer
+  const toggleQuantBtn = document.getElementById('toggle-quant-btn');
+  const quantDrawer = document.getElementById('quant-drawer');
+  async function loadQuantPareto(iterIdx) {
+    const grid = document.getElementById('quant-cards-grid');
+    const stText = document.getElementById('quant-status-text');
+    if (!grid) return;
+    try {
+      const resp = await fetch('/v1/kernels/quant-pareto?iter=' + iterIdx);
+      const d = await resp.json();
+      if (stText) {
+        stText.textContent = 'Source #' + pad2(d.source_iteration) + ' | Max Allowed PPL Delta: +' + d.max_allowed_ppl_delta.toFixed(2) +
+          ' | Recommended Pareto Format: ' + d.recommended_format.toUpperCase();
+      }
+      grid.innerHTML = (d.formats || []).map(f =>
+        '<div class="multiarch-card" style="' + (f.format_id === d.recommended_format ? 'border-color:var(--emerald)' : '') + '">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center">' +
+            '<strong style="color:var(--accent)">' + f.label + '</strong>' +
+            '<span class="badge ' + (f.pareto_optimal ? 'badge-delta' : 'badge-spill') + '">' + (f.pareto_optimal ? 'PARETO' : 'DOMINATED') + '</span>' +
+          '</div>' +
+          '<div>Bits/W: <strong>' + f.effective_bits_per_weight.toFixed(2) + 'b</strong> (' + f.traffic_reduction_factor.toFixed(2) + 'x HBM reduction)</div>' +
+          '<div>Latency: <strong style="color:var(--emerald)">' + f.latency_us.toFixed(2) + ' us</strong> (' + f.speedup_vs_fp32.toFixed(2) + 'x vs FP32 | SOL ' + f.sol_pct.toFixed(1) + '%)</div>' +
+          '<div>Fidelity: cos=<strong>' + f.cosine_similarity.toFixed(5) + '</strong> | PPL <strong>+' + f.wikitext2_ppl_delta.toFixed(3) + '</strong></div>' +
+          '<div>Tensor Inst: <code style="color:#bae6fd">' + f.tensor_core_mnemonic + '</code></div>' +
+          '<div style="color:var(--fg-1)">Scale: ' + f.group_scale_spec + '</div>' +
+        '</div>'
+      ).join('');
+    } catch (_) {}
+  }
+  if (toggleQuantBtn && quantDrawer) {
+    toggleQuantBtn.addEventListener('click', () => {
+      quantDrawer.classList.toggle('open');
+      if (quantDrawer.classList.contains('open')) loadQuantPareto(inspectedIndex);
+    });
+  }
+
+  // 3. Closed-Loop Counter-Feedback Cost-Model Auto-Tuner Drawer
+  const toggleCalibrateBtn = document.getElementById('toggle-calibrate-btn');
+  const calibrateDrawer = document.getElementById('calibrate-drawer');
+  async function loadCostCalibration() {
+    const box = document.getElementById('calibrate-content-box');
+    const stText = document.getElementById('calibrate-status-text');
+    if (!box) return;
+    try {
+      const resp = await fetch('/v1/egraph/calibrate', { method: 'POST' });
+      const d = await resp.json();
+      if (stText) {
+        stText.textContent = 'MAPE: ' + d.prior_mape_pct.toFixed(2) + '% -> ' + d.posterior_mape_pct.toFixed(2) +
+          '% | Spearman Rho: ' + d.prior_spearman_rho.toFixed(3) + ' -> ' + d.posterior_spearman_rho.toFixed(3) +
+          ' | Ranking Inversions Resolved: ' + d.inversions_resolved + ' | Extracted Champion: #' + pad2(d.extracted_champion_iter);
+      }
+      const pw = d.posterior_weights || {};
+      const invRows = (d.residuals || []).filter(r => r.ranking_inverted || r.prior_abs_error_pct > 15 || r.iteration === 23).slice(0, 8).map(r =>
+        '<tr>' +
+          '<td>#' + pad2(r.iteration) + ' ' + r.phase + '</td>' +
+          '<td>' + r.measured_latency_us.toFixed(2) + ' us</td>' +
+          '<td>' + r.prior_predicted_us.toFixed(2) + ' us (' + r.prior_abs_error_pct.toFixed(1) + '% err)</td>' +
+          '<td style="color:var(--emerald)">' + r.posterior_predicted_us.toFixed(2) + ' us (' + r.posterior_abs_error_pct.toFixed(1) + '% err)</td>' +
+          '<td><span class="badge ' + (r.ranking_inverted ? 'badge-delta' : 'badge-l2') + '">' + (r.ranking_inverted ? 'INVERSION FIXED' : 'ALIGNED') + '</span></td>' +
+        '</tr>'
+      ).join('');
+      box.innerHTML =
+        '<div style="display:grid;grid-template-columns:1fr 1.6fr;gap:0.65rem">' +
+          '<div class="multiarch-card">' +
+            '<strong style="color:var(--accent)">Hardware-Calibrated Posterior Weights (Ridge Fit over 24 Candidates)</strong>' +
+            '<div>HBM Bandwidth Weight: <strong>' + (pw.hbm_bandwidth_weight || 0).toFixed(2) + '</strong> (prior 1.00)</div>' +
+            '<div>L2 Residency Weight: <strong>' + (pw.l2_residency_weight || 0).toFixed(2) + '</strong> (prior 1.00)</div>' +
+            '<div>Shared Bank Penalty: <strong style="color:var(--rose)">' + (pw.shared_bank_penalty || 0).toFixed(2) + '</strong> (prior 1.00)</div>' +
+            '<div>Register Spill Penalty: <strong style="color:var(--rose)">' + (pw.reg_spill_penalty || 0).toFixed(2) + '</strong> (prior 1.00)</div>' +
+            '<div>Scoreboard Wait Weight: <strong>' + (pw.scoreboard_wait_weight || 0).toFixed(2) + '</strong> (prior 1.00)</div>' +
+            '<div>Barrier Sync Weight: <strong>' + (pw.barrier_sync_weight || 0).toFixed(2) + '</strong> (prior 1.00)</div>' +
+          '</div>' +
+          '<table class="sass-table"><thead><tr><th>Candidate</th><th>Hardware Us</th><th>Analytical Prior</th><th>Calibrated Posterior</th><th>Rank Status</th></tr></thead><tbody>' + invRows + '</tbody></table>' +
+        '</div>';
+    } catch (_) {}
+  }
+  if (toggleCalibrateBtn && calibrateDrawer) {
+    toggleCalibrateBtn.addEventListener('click', () => {
+      calibrateDrawer.classList.toggle('open');
+      if (calibrateDrawer.classList.contains('open')) loadCostCalibration();
+    });
+  }
+
+  // 4. SM Occupancy Cliff & Warp-Specialization Drawer
+  const toggleOccmapBtn = document.getElementById('toggle-occmap-btn');
+  const occmapDrawer = document.getElementById('occmap-drawer');
+  async function loadOccupancyMap() {
+    const box = document.getElementById('occmap-content-box');
+    const stText = document.getElementById('occmap-status-text');
+    if (!box) return;
+    try {
+      const resp = await fetch('/v1/kernels/occupancy-map');
+      const d = await resp.json();
+      const coord = (d.candidate_coordinates || [])[inspectedIndex] || (d.candidate_coordinates || [])[0];
+      if (stText && coord) {
+        stText.textContent = d.arch + ' (' + d.max_registers_per_sm + ' regs/SM, ' + (d.max_shared_mem_per_sm / 1024).toFixed(0) +
+          ' KB smem/SM) | Candidate #' + pad2(coord.iteration) + ': ' + coord.regs_per_thread + ' regs -> ' +
+          coord.active_ctas_per_sm + ' CTAs/SM (' + coord.occupancy_pct.toFixed(1) + '% occ, +' + coord.margin_to_next_cliff_regs + ' regs margin to next cliff)';
+      }
+      const cliffRows = (d.cliff_table || []).map(c =>
+        '<tr>' +
+          '<td>&lt;= ' + c.max_regs_per_thread + ' regs</td>' +
+          '<td>' + (c.max_shared_bytes_cta / 1024).toFixed(1) + ' KB</td>' +
+          '<td>' + c.active_ctas_per_sm + ' CTAs (' + c.active_warps_per_sm + ' warps)</td>' +
+          '<td style="color:var(--emerald)">' + c.occupancy_pct.toFixed(1) + '%</td>' +
+          '<td>' + c.limiting_resource + '</td>' +
+        '</tr>'
+      ).join('');
+      const wsCards = (d.warp_spec_profiles || []).map(w =>
+        '<div class="multiarch-card">' +
+          '<div style="display:flex;justify-content:space-between"><strong style="color:var(--accent)">' + w.label + '</strong><span class="badge badge-delta">' + w.speedup_vs_symmetric.toFixed(2) + 'x</span></div>' +
+          '<div>Split: ' + w.producer_dma_warps + ' DMA Producer Warp(s) (' + w.reg_budget_producer + 'R) + ' + w.consumer_math_warps + ' Math Consumer Warps (' + w.reg_budget_consumer + 'R)</div>' +
+          '<div>Named Barriers: ' + w.named_barriers_used + ' | Est Latency: <strong style="color:var(--emerald)">' + w.estimated_latency_us.toFixed(2) + ' us</strong></div>' +
+        '</div>'
+      ).join('');
+      box.innerHTML =
+        '<div><div style="margin-bottom:0.25rem;color:var(--fg-1);font-weight:700">SM Register &amp; Shared-Memory Occupancy Cliff Staircase:</div>' +
+        '<table class="sass-table"><thead><tr><th>Max Regs/Thread</th><th>Max SMEM/CTA</th><th>Active CTAs (Warps)</th><th>SM Occupancy</th><th>Limiter</th></tr></thead><tbody>' + cliffRows + '</tbody></table></div>' +
+        '<div style="display:flex;flex-direction:column;gap:0.35rem"><div style="color:var(--fg-1);font-weight:700">Producer / Consumer Warp-Specialization Schedules (setmaxnreg):</div>' + wsCards + '</div>';
+    } catch (_) {}
+  }
+  if (toggleOccmapBtn && occmapDrawer) {
+    toggleOccmapBtn.addEventListener('click', () => {
+      occmapDrawer.classList.toggle('open');
+      if (occmapDrawer.classList.contains('open')) loadOccupancyMap();
+    });
+  }
+
+  // 5. Multi-GPU / NVL72 Multimem AllReduce + GEMV Epilogue Fusion Drawer
+  const toggleDistBtn = document.getElementById('toggle-dist-btn');
+  const distDrawer = document.getElementById('dist-drawer');
+  async function loadDistributedFusion(iterIdx) {
+    const grid = document.getElementById('dist-cards-grid');
+    const stText = document.getElementById('dist-status-text');
+    if (!grid) return;
+    try {
+      const resp = await fetch('/v1/kernels/distributed-fusion?iter=' + iterIdx);
+      const d = await resp.json();
+      if (stText) {
+        stText.textContent = 'Source #' + pad2(d.source_iteration) + ' | Disaggregated P/D TTFT=' + d.disagg_pd_prefill_ttft_ms.toFixed(1) +
+          'ms, TPOT=' + d.disagg_pd_decode_tpot_ms.toFixed(2) + 'ms | SLA Attained: ' + (d.sla_attained ? 'YES' : 'NO');
+      }
+      grid.innerHTML = (d.tiers || []).map(t =>
+        '<div class="multiarch-card">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center">' +
+            '<strong style="color:var(--accent)">TP=' + t.tensor_parallel_degree + ' (' + t.topology_label + ')</strong>' +
+            '<span class="badge badge-delta">' + t.fusion_speedup.toFixed(2) + 'x</span>' +
+          '</div>' +
+          '<div>Fabric: <strong>' + t.interconnect_bw_gbps.toFixed(0) + ' GB/s</strong> | Overlap: <strong>' + t.comm_overlap_pct.toFixed(1) + '%</strong></div>' +
+          '<div>Unfused (GEMV+NCCL): <span style="color:var(--rose)">' + t.unfused_total_us.toFixed(2) + ' us</span> (' + t.unfused_gemv_us.toFixed(2) + '+' + t.unfused_nccl_allreduce_us.toFixed(2) + 'us)</div>' +
+          '<div>Fused NVLS Multimem: <strong style="color:var(--emerald)">' + t.fused_multimem_total_us.toFixed(2) + ' us</strong> | C2C KV: ' + t.grace_c2c_kv_prefetch_us.toFixed(2) + ' us</div>' +
+          '<pre class="ptx-inline" style="max-height:76px;overflow:auto">' + (t.ptx_multimem_snippet || '') + '</pre>' +
+        '</div>'
+      ).join('');
+    } catch (_) {}
+  }
+  if (toggleDistBtn && distDrawer) {
+    toggleDistBtn.addEventListener('click', () => {
+      distDrawer.classList.toggle('open');
+      if (distDrawer.classList.contains('open')) loadDistributedFusion(inspectedIndex);
     });
   }
 
