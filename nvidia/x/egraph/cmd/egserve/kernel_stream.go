@@ -2828,7 +2828,7 @@ const inspectorHTMLPage = `<!DOCTYPE html>
   }
   .telemetry-ribbons {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(4, 1fr);
     gap: 0.45rem;
     font-family: var(--font-mono);
     font-size: 0.66rem;
@@ -2841,20 +2841,48 @@ const inspectorHTMLPage = `<!DOCTYPE html>
     display: flex;
     flex-direction: column;
     gap: 0.18rem;
+    min-width: 0;
   }
   .ribbon-head {
     display: flex;
     justify-content: space-between;
     align-items: center;
     color: var(--fg-1);
-    font-size: 0.62rem;
+    font-size: 0.61rem;
     font-weight: 700;
+    gap: 0.25rem;
   }
   .ribbon-body {
     color: var(--fg-0);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .bank-strip {
+    display: grid;
+    grid-template-columns: repeat(32, 1fr);
+    gap: 1px;
+    margin-top: 0.1rem;
+  }
+  .bank-cell {
+    height: 7px;
+    border-radius: 1px;
+    background: var(--bg-3);
+  }
+  .multiarch-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.55rem;
+  }
+  .multiarch-card {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 0.45rem 0.55rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.28rem;
+    font-size: 0.64rem;
   }
   .sandbox-drawer {
     display: none;
@@ -2921,6 +2949,8 @@ const inspectorHTMLPage = `<!DOCTYPE html>
       </div>
       <button id="live-compile-btn" title="Compile all 24 candidates live through nvcc --cubin -lineinfo -Xptxas -v and nvdisasm -c -g">Compile Live (nvcc/ptxas)</button>
       <button id="live-gpu-btn" title="Run paired CUDA event timing &amp; numerical verification on GB10 (sm_121a) under gpu-lock">Benchmark GPU (dgx)</button>
+      <button id="auto-synth-btn" title="Run autonomous multi-round E-Graph + UCB1 beam search synthesizer from #00">Auto-Synthesize (Beam)</button>
+      <button id="toggle-multiarch-btn" title="Compare target-specialized CUDA/PTX/SASS across Hopper sm_90a, Blackwell sm_100a, GB10 sm_121a, and Rubin sm_130a">Multi-Arch Matrix</button>
       <button id="toggle-sandbox-btn" title="Open interactive CUDA live-edit &amp; E-Graph rewrite sandbox">Rewrite Sandbox</button>
       <label>Kernel:
         <select id="mode-select">
@@ -2944,6 +2974,8 @@ const inspectorHTMLPage = `<!DOCTYPE html>
           <option value="1500">1500ms</option>
         </select>
       </label>
+      <a id="export-cu-link" class="btn-link" href="/v1/kernels/export?format=cu&amp;iter=23" target="_blank" title="Download standalone compilable .cu CUDA Graph reproducer">Export .cu</a>
+      <a id="export-bundle-link" class="btn-link" href="/v1/kernels/export?format=egbundle&amp;iter=23" target="_blank" title="Download SHA-256 verified .egbundle artifact">Export .egbundle</a>
       <a id="raw-text-link" class="btn-link" href="/v1/kernels/annotated?mode=simple&amp;format=text" target="_blank">Annotated Source</a>
     </div>
   </header>
@@ -2976,19 +3008,42 @@ const inspectorHTMLPage = `<!DOCTYPE html>
     <div class="telemetry-ribbons">
       <div class="ribbon-card" id="egraph-derivation-bar">
         <div class="ribbon-head">
-          <span>E-GRAPH SATURATION &amp; BEAM DERIVATION</span>
+          <span>E-GRAPH SATURATION &amp; BEAM</span>
           <span id="egraph-eclass-badge" class="badge badge-proof">e-class #0 -&gt; #0</span>
         </div>
         <div class="ribbon-body" id="egraph-rule-text">Loading e-graph equality saturation trace...</div>
       </div>
+      <div class="ribbon-card" id="roofline-sol-bar">
+        <div class="ribbon-head">
+          <span>ROOFLINE SPEED-OF-LIGHT (SOL %)</span>
+          <span id="roofline-sol-badge" class="badge badge-l2">SOL 14.6% -&gt; 88.4%</span>
+        </div>
+        <div class="ribbon-body" id="roofline-sol-text">Loading hardware roofline attainment...</div>
+      </div>
+      <div class="ribbon-card" id="bank-liveness-bar">
+        <div class="ribbon-head">
+          <span>32-BANK MATRIX &amp; REG LIVENESS</span>
+          <span id="bank-liveness-badge" class="badge badge-stage">1-Way | Peak 48R</span>
+        </div>
+        <div class="ribbon-body" id="bank-liveness-text">Simulating 32-lane warp bank access...</div>
+        <div class="bank-strip" id="bank-heatmap-strip"></div>
+      </div>
       <div class="ribbon-card" id="token-flight-bar">
         <div class="ribbon-head">
-          <span>LIVE SPECULATIVE TOKEN STREAM &amp; CUGRAPHEXEC HOT-SWAP</span>
+          <span>SPECULATIVE TOKEN STREAM &amp; HOT-SWAP</span>
           <span id="token-flight-badge" class="badge badge-l2">Epoch #1 | M=1 | 31.8 tok/s</span>
         </div>
         <div class="ribbon-body" id="token-flight-text">Streaming token telemetry across M in {1, 2, 4, 8}...</div>
       </div>
     </div>
+  </section>
+
+  <section class="sandbox-drawer" id="multiarch-drawer">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.45rem">
+      <strong style="color:var(--accent)">MULTI-ARCHITECTURE CROSS-TARGET CODEGEN MATRIX (GET /v1/kernels/multiarch — Hopper sm_90a / Blackwell sm_100a / GB10 sm_121a / Rubin sm_130a)</strong>
+      <span id="multiarch-status-text" style="color:var(--fg-1)">Unified E-Graph Equivalence-Class Extraction</span>
+    </div>
+    <div class="multiarch-grid" id="multiarch-cards-grid"></div>
   </section>
 
   <section class="sandbox-drawer" id="sandbox-drawer">
@@ -3058,6 +3113,9 @@ const inspectorHTMLPage = `<!DOCTYPE html>
   let egraphDerivations = [];
   let egraphReportMeta = null;
   let tokenFlightSteps = [];
+  let rooflinePoints = [];
+  let rooflineHardware = null;
+  let bankLivenessReports = [];
   let selectedBestLine = 6;
   let selectedCandLine = 6;
   let maxSeenIndex = 0;
@@ -3307,6 +3365,12 @@ const inspectorHTMLPage = `<!DOCTYPE html>
       if (ann) {
         badges += '<span class="badge badge-stage">S' + ann.stage_index + ' ' + (ann.egraph_cost_ns / 1000).toFixed(1) + 'us</span>';
       }
+      const blRep = bankLivenessReports[frame.iteration];
+      if (blRep && Array.isArray(blRep.line_liveness) && blRep.line_liveness[ln - 1]) {
+        const ll = blRep.line_liveness[ln - 1];
+        const rCls = ll.triggers_local_spill ? 'badge-spill' : (ll.crosses_occupancy_cliff ? 'badge-proof' : 'badge-stage');
+        badges += '<span class="badge ' + rCls + '" title="Live regs: ' + ll.live_regs + ' (occ=' + ll.occupancy_ceiling_ctas + ' CTA/SM)">R' + ll.live_regs + '</span>';
+      }
       if (isDiff) {
         badges += '<span class="badge ' + (promoted ? 'badge-delta' : 'badge-spill') + '">DIFF</span>';
       }
@@ -3505,7 +3569,7 @@ const inspectorHTMLPage = `<!DOCTYPE html>
     }
 
     // Update Live Speculative Token Stream & CUgraphExec Hot-Swap Ribbon
-    const tfStep = tokenFlightSteps[idx];
+    const tfStep = tokenFlightSteps[idx] || tokenFlightSteps[tokenFlightSteps.length - 1];
     if (tfStep) {
       const tfBadge = document.getElementById('token-flight-badge');
       tfBadge.textContent = 'Epoch #' + tfStep.graph_exec_epoch +
@@ -3517,6 +3581,47 @@ const inspectorHTMLPage = `<!DOCTYPE html>
         'Accept ' + (tfStep.acceptance_rate * 100).toFixed(0) + '% (' + tfStep.draft_accepted + '/' + tfStep.draft_proposed + ' draft) | Stream: ' +
         tfStep.cumulative_text;
     }
+
+    // Update Roofline & Speed-of-Light (SOL %) Ribbon
+    const rfPt = rooflinePoints[idx] || rooflinePoints[rooflinePoints.length - 1];
+    if (rfPt) {
+      const rfBadge = document.getElementById('roofline-sol-badge');
+      rfBadge.textContent = 'SOL ' + rfPt.sol_pct.toFixed(1) + '% (Best ' + rfPt.best_sol_pct_so_far.toFixed(1) + '%)';
+      rfBadge.className = 'badge ' + (rfPt.sol_pct >= 75 ? 'badge-delta' : (rfPt.sol_pct >= 45 ? 'badge-l2' : 'badge-spill'));
+      document.getElementById('roofline-sol-text').textContent =
+        rfPt.bottleneck_regime + ' | AI=' + rfPt.arithmetic_intensity_flop_per_byte.toFixed(1) +
+        ' FLOP/B | ' + rfPt.attained_bandwidth_gbps.toFixed(0) + ' GB/s | ' + rfPt.attained_gflops.toFixed(0) + ' GFLOP/s';
+    }
+
+    // Update 32-Bank Shared-Memory Matrix & Register Liveness Ribbon
+    const blRep = bankLivenessReports[idx] || bankLivenessReports[bankLivenessReports.length - 1];
+    if (blRep && blRep.bank_analysis) {
+      const ba = blRep.bank_analysis;
+      const blBadge = document.getElementById('bank-liveness-badge');
+      blBadge.textContent = (ba.conflict_free ? '1-Way Conflict-Free' : (ba.max_way_conflict + '-Way Conflict')) +
+        ' | ' + ba.wavefront_transactions + ' Wave | Peak ' + blRep.peak_live_regs + 'R (L' + blRep.peak_pressure_line + ')';
+      blBadge.className = 'badge ' + ((ba.conflict_free && ba.wavefront_transactions === 1) ? 'badge-delta' : (ba.conflict_free ? 'badge-l2' : 'badge-spill'));
+      document.getElementById('bank-liveness-text').textContent = ba.swizzle_mode + ' — ' + ba.summary;
+      const stripEl = document.getElementById('bank-heatmap-strip');
+      if (stripEl && Array.isArray(ba.bank_hit_counts)) {
+        let bHtml = '';
+        for (let b = 0; b < 32; b++) {
+          const hits = ba.bank_hit_counts[b] || 0;
+          let bg = '#1e293b';
+          if (hits === 1) bg = '#10b981';
+          else if (hits === 2) bg = '#f59e0b';
+          else if (hits > 2) bg = '#f43f5e';
+          bHtml += '<div class="bank-cell" style="background:' + bg + '" title="Bank ' + b + ': ' + hits + ' warp lane hit(s)"></div>';
+        }
+        stripEl.innerHTML = bHtml;
+      }
+    }
+
+    // Update 1-Click Production Export Links
+    const expCu = document.getElementById('export-cu-link');
+    const expBundle = document.getElementById('export-bundle-link');
+    if (expCu) expCu.href = '/v1/kernels/export?format=cu&iter=' + idx;
+    if (expBundle) expBundle.href = '/v1/kernels/export?format=egbundle&iter=' + idx;
   }
 
   function setPlayState(paused, modeLabel) {
@@ -3590,11 +3695,13 @@ const inspectorHTMLPage = `<!DOCTYPE html>
     maxSeenIndex = 0;
     inspectedIndex = 0;
     try {
-      const [annResp, egResp, tfResp, rwResp] = await Promise.all([
+      const [annResp, egResp, tfResp, rwResp, rfResp, blResp] = await Promise.all([
         fetch('/v1/kernels/annotated?mode=' + modeSelect.value + '&bucket=' + bucketSelect.value + '&iter=0'),
         fetch('/v1/egraph/trace'),
         fetch('/v1/flight/tokens'),
         fetch('/v1/kernels/rewrites'),
+        fetch('/v1/kernels/roofline'),
+        fetch('/v1/kernels/bank-liveness'),
       ]);
       const data = await annResp.json();
       catalogFrames = data.iterations || [data];
@@ -3614,6 +3721,15 @@ const inspectorHTMLPage = `<!DOCTYPE html>
       if (tfResp.ok) {
         const tfData = await tfResp.json();
         tokenFlightSteps = tfData.steps || [];
+      }
+      if (rfResp.ok) {
+        const rfData = await rfResp.json();
+        rooflineHardware = rfData.hardware || null;
+        rooflinePoints = rfData.points || [];
+      }
+      if (blResp.ok) {
+        const blData = await blResp.json();
+        bankLivenessReports = blData.reports || [];
       }
       if (rwResp.ok) {
         const rules = await rwResp.json();
@@ -3699,6 +3815,86 @@ const inspectorHTMLPage = `<!DOCTYPE html>
       const sbArea = document.getElementById('sandbox-cuda-textarea');
       if (sandboxDrawer.classList.contains('open') && curFrame && sbArea && !sbArea.value.trim()) {
         sbArea.value = (curFrame.cuda_lines || []).join('\n');
+      }
+    });
+  }
+
+  const autoSynthBtn = document.getElementById('auto-synth-btn');
+  if (autoSynthBtn) {
+    autoSynthBtn.addEventListener('click', async () => {
+      const origText = autoSynthBtn.textContent;
+      autoSynthBtn.textContent = 'Synthesizing (4-Round Beam)...';
+      autoSynthBtn.disabled = true;
+      try {
+        const resp = await fetch('/v1/kernels/synthesize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ seed_iteration: 0, max_rounds: 4, beam_width: 2 }),
+        });
+        const data = await resp.json();
+        if (data && Array.isArray(data.steps)) {
+          data.steps.forEach(st => {
+            if (st && st.candidate) {
+              catalogFrames[st.candidate.iteration] = st.candidate;
+            }
+          });
+          const [rfResp, blResp] = await Promise.all([
+            fetch('/v1/kernels/roofline'),
+            fetch('/v1/kernels/bank-liveness'),
+          ]);
+          if (rfResp.ok) {
+            const rfData = await rfResp.json();
+            rooflinePoints = rfData.points || [];
+          }
+          if (blResp.ok) {
+            const blData = await blResp.json();
+            bankLivenessReports = blData.reports || [];
+          }
+          maxSeenIndex = catalogFrames.length - 1;
+          scrubberRange.max = maxSeenIndex;
+          scrubToIndex(data.final_champion_iter || maxSeenIndex, true);
+        }
+      } catch (_) {}
+      autoSynthBtn.textContent = origText;
+      autoSynthBtn.disabled = false;
+    });
+  }
+
+  const toggleMultiArchBtn = document.getElementById('toggle-multiarch-btn');
+  const multiarchDrawer = document.getElementById('multiarch-drawer');
+  async function loadMultiArchMatrix(iterIdx) {
+    const grid = document.getElementById('multiarch-cards-grid');
+    const stText = document.getElementById('multiarch-status-text');
+    if (!grid) return;
+    try {
+      const resp = await fetch('/v1/kernels/multiarch?iter=' + iterIdx);
+      const data = await resp.json();
+      if (stText) {
+        stText.textContent = 'Source Candidate #' + pad2(data.source_iteration) + ' (' + data.source_phase + ')';
+      }
+      grid.innerHTML = '';
+      (data.targets || []).forEach(t => {
+        const card = document.createElement('div');
+        card.className = 'multiarch-card';
+        card.innerHTML =
+          '<div style="display:flex;justify-content:space-between;align-items:center">' +
+            '<strong style="color:var(--accent)">' + t.arch + ' — ' + t.device_name + '</strong>' +
+            '<span class="badge badge-delta">' + t.relative_speedup_vs_sm90.toFixed(2) + 'x vs H200 | SOL ' + t.sol_pct.toFixed(1) + '%</span>' +
+          '</div>' +
+          '<div style="color:var(--fg-1)">Gen: <strong style="color:var(--fg-0)">' + t.generation + '</strong> | Latency: <strong style="color:var(--emerald)">' + t.estimated_latency_us.toFixed(2) + ' us</strong> | Regs: ' + t.registers_per_thread + ' | Occ: ' + t.occupancy_ctas_per_sm + ' CTA</div>' +
+          '<div>Tensor Core: <code style="color:#bae6fd">' + t.tensor_core_instruction + '</code></div>' +
+          '<div>Async Copy: <code style="color:#bae6fd">' + t.async_copy_primitive + '</code></div>' +
+          '<div>Memory Policy: <span style="color:var(--emerald)">' + t.memory_hierarchy_policy + '</span></div>' +
+          '<pre class="ptx-inline" style="margin-top:0.2rem;max-height:92px;overflow:auto">' + (t.ptx_snippet || '') + '</pre>';
+        grid.appendChild(card);
+      });
+    } catch (_) {}
+  }
+  if (toggleMultiArchBtn && multiarchDrawer) {
+    toggleMultiArchBtn.addEventListener('click', () => {
+      multiarchDrawer.classList.toggle('open');
+      if (multiarchDrawer.classList.contains('open')) {
+        loadMultiArchMatrix(inspectedIndex);
       }
     });
   }
